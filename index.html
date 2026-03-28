@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Peer Evaluation System | 同儕互評雲端版</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,11 +28,18 @@ window.CLOUD_GAS_URL = "https://script.google.com/macros/s/AKfycbyFGJT7vtawFFjJ1
 </script>
 <style>
 @keyframes fadeInUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
-.animate-fade-in{animation:fadeInUp .5s ease-out forwards}
+.animate-fade-in{animation:fadeInUp .4s ease-out forwards}
 @keyframes spin{to{transform:rotate(360deg)}}
 .animate-spin{animation:spin 1s linear infinite}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+/* 隱藏預設捲軸，提供乾淨的橫向滑動體驗 */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+::-webkit-scrollbar{width:6px; height:6px;}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
 .dark ::-webkit-scrollbar-thumb{background:#475569}
+
 .rank-slot{min-height:52px;transition:all .2s ease}
 .rank-slot.drag-over{background:rgba(0,64,48,.12);border-color:#004030;transform:scale(1.02)}
 .dark .rank-slot.drag-over{background:rgba(216,195,165,.15);border-color:#D8C3A5}
@@ -45,7 +52,7 @@ window.CLOUD_GAS_URL = "https://script.google.com/macros/s/AKfycbyFGJT7vtawFFjJ1
 .rank-other{background:#e2e8f0;color:#475569}.dark .rank-other{background:#334155;color:#94a3b8}
 </style>
 </head>
-<body class="bg-[#f4f4f4] dark:bg-[#121212] min-h-screen">
+<body class="bg-[#f4f4f4] dark:bg-[#121212] min-h-screen text-slate-800 dark:text-slate-200">
 <div id="root"></div>
 <script type="text/babel">
 const{useState,useEffect,useRef,useCallback,useMemo}=React;
@@ -68,11 +75,11 @@ const apiFetch = async (payload) => {
 const dict={
 zh:{
 brand:"PEER",title:"同儕互評系統",subtitle:"小組作業公平計分 — 匿名排序制",
-login_title:"登入互評",login_code_label:"請輸入您的登入碼",login_code_ph:"貼上您 Email 中收到的登入碼",
+login_title:"登入互評",login_code_label:"請輸入您的登入碼",login_code_ph:"貼上 Email 中收到的登入碼",
 login_btn:"進入互評",login_error:"登入碼無效，請檢查後重試",login_already:"您已完成此次互評，感謝！",
-admin_title:"管理者面板",admin_btn:"管理者模式",admin_pw_label:"管理者密碼",admin_pw_ph:"輸入管理者密碼",
-admin_enter:"登入",admin_back:"返回登入",admin_reset:"重設全部資料",admin_reset_confirm:"確定清除所有資料？此操作無法復原。",
-admin_user_label:"帳號",admin_user_ph:"輸入帳號",
+admin_title:"管理者面板",admin_btn:"管理者模式",admin_pw_label:"密碼",admin_pw_ph:"輸入密碼",
+admin_enter:"登入",admin_back:"返回登入",admin_reset:"重設資料",admin_reset_confirm:"確定清除所有資料？此操作無法復原。",
+admin_user_label:"帳號",admin_user_ph:"輸入帳號 (教授可留空)",
 admin_role_prof:"教授",admin_role_ta:"助教",admin_logged_as:"身份",
 admin_tab_ta:"帳號管理",admin_ta_title:"助教帳號管理",admin_ta_add:"新增助教",
 admin_ta_name:"姓名",admin_ta_name_ph:"例：Tina Lin",
@@ -80,34 +87,32 @@ admin_ta_id:"帳號",admin_ta_id_ph:"例：tina",
 admin_ta_pw:"密碼",admin_ta_pw_ph:"設定密碼",
 admin_ta_remove:"移除",admin_ta_remove_confirm:"確定移除此助教帳號？",
 admin_ta_none:"尚未新增助教帳號",admin_ta_prof_note:"教授帳號（不可移除）",
-admin_tab_setup:"設定",admin_tab_results:"結果",admin_tab_codes:"登入碼",admin_tab_gas:"部署 & 雲端",
+admin_tab_setup:"設定",admin_tab_results:"結果",admin_tab_codes:"登入碼",admin_tab_gas:"雲端部署",
 setup_title:"課程設定",
 setup_upload_roster:"上傳學生名單",
-setup_upload_roster_desc:"支援 CSV、Excel (.xlsx/.xls)、Word (.docx)、PDF",
-setup_csv_format:"欄位需含：學號、系級、中文姓名、英文姓名、組別（順序不拘，欄名模糊辨識）",
+setup_upload_roster_desc:"支援 CSV, Excel, Word, PDF",
+setup_csv_format:"欄位需含：學號、系級、中文姓名、英文姓名、組別（可模糊辨識）",
 setup_csv_loaded:"已載入 {n} 位學生，{g} 個小組",
-setup_roster_preview:"學生名單預覽",setup_roster_dept:"系級",setup_roster_id:"學號",setup_roster_name_zh:"中文姓名",setup_roster_name_en:"英文姓名",setup_roster_email:"Email",setup_roster_group:"組別",setup_roster_auto:"自動產生",setup_roster_manual:"手動",setup_roster_clear:"清除名單",setup_roster_edit_email:"點擊 Email 可手動修改",
+setup_roster_preview:"名單預覽",setup_roster_dept:"系級",setup_roster_id:"學號",setup_roster_name_zh:"中文名",setup_roster_name_en:"英文名",setup_roster_email:"Email",setup_roster_group:"組別",setup_roster_auto:"自動",setup_roster_manual:"手動",setup_roster_clear:"清除名單",setup_roster_edit_email:"點擊 Email 可手動修改",
 setup_parsing:"解析中...",setup_parse_error:"解析失敗：{e}",
 setup_criteria_title:"自訂評分標準",
-setup_criteria_import:"從文件匯入評分標準",
-setup_criteria_import_desc:"上傳含評分項目的文件（PDF/Word/Excel/CSV/TXT），系統將自動擷取",
+setup_criteria_import:"匯入評分標準",
+setup_criteria_import_desc:"上傳文件 (PDF/Word/Excel等)，系統將自動擷取",
 setup_criteria_importing:"AI 擷取中...",
 setup_add_criterion:"+ 新增評分項目",
 setup_criterion_zh:"中文名稱",setup_criterion_en:"English Name",
-setup_criterion_desc_zh:"中文說明（Rubric）",setup_criterion_desc_en:"English Description (Rubric)",
+setup_criterion_desc_zh:"中文說明",setup_criterion_desc_en:"English Description",
 setup_remove:"移除",setup_weight_range:"加權因子範圍",setup_weight_min:"最低",setup_weight_max:"最高",
 setup_save:"儲存設定",setup_saved:"設定已儲存！",
 setup_assignment:"作業名稱",setup_assignment_ph:"例：期中報告",
-setup_group_score:"小組作業成績（老師給分）",setup_group_score_ph:"例：85",setup_group_score_desc:"互評加權因子 × 此成績 = 個人得分",
+setup_group_score:"小組作業成績",setup_group_score_ph:"例：85",setup_group_score_desc:"互評加權因子 × 此成績 = 個人得分",
 setup_deadline:"截止日期",setup_deadline_ph:"例：2026-04-15",
 setup_eval_url:"互評網頁 URL",setup_eval_url_ph:"部署後的網址",
 codes_title:"登入碼管理",codes_generate:"產生登入碼",
-codes_export_gas:"一鍵複製寄信資料",
-codes_export_csv:"匯出 CSV",
-codes_copy_done:"已複製到剪貼簿！",
-codes_push:"推送到雲端資料庫",codes_pushing:"推送中...",codes_push_done:"推播成功！名單已同步至 Google Sheets",codes_push_error:"推送失敗：{e}",
+codes_export_gas:"複製資料",codes_export_csv:"匯出 CSV",codes_copy_done:"已複製！",
+codes_push:"推送到雲端資料庫",codes_pushing:"推送中...",codes_push_done:"推播成功！",codes_push_error:"推送失敗：{e}",
 codes_cloud_send:"雲端寄發登入碼", codes_cloud_remind:"雲端寄發催繳信", codes_sending:"寄信中...",
-codes_send_confirm:"確定要透過雲端自動寄發信件給學生嗎？\n\n(此操作會直接透過您的 Google 帳號寄出信件，請確保名單已推送到雲端)",
+codes_send_confirm:"確定要透過雲端寄發信件給學生嗎？\n(請確保名單已推送到雲端)",
 codes_status:"狀態",codes_submitted:"已提交",codes_pending:"未提交",
 codes_code:"登入碼",codes_student:"學生",codes_group:"組別",
 eval_title:"互評作業",eval_criterion:"評分項目",
@@ -116,37 +121,37 @@ eval_pool:"待排序組員",eval_rank:"第 {n} 名",
 eval_submit:"送出互評",eval_confirm_title:"確認送出",
 eval_confirm_msg:"排序已自動校準。確認後無法修改，是否送出？",
 eval_confirm_yes:"確認送出",eval_confirm_no:"返回修改",
-eval_success:"互評已送出，感謝您！",eval_incomplete:"請完成所有評分項目的排序",
+eval_success:"互評已送出，感謝您！",eval_incomplete:"請完成所有項目的排序",
 eval_self_note:"(自己)",
 results_title:"互評結果",results_group:"組別",results_student:"學生",
-results_avg_rank:"平均排序",results_percentile:"百分位",results_weight:"加權因子",
-results_group_score:"組別分數",results_final_score:"個人得分",
-results_submissions:"已交 / 總人數",results_export:"匯出結果 CSV",
-results_no_data:"尚無互評資料",results_detail:"明細",results_by_criterion:"各項目排序",
-results_sync_cloud:"從雲端同步最新成績",results_syncing:"同步中...",results_sync_done:"雲端成績同步完成！",
+results_avg_rank:"平均",results_percentile:"百分位",results_weight:"加權",
+results_group_score:"組成績",results_final_score:"個人得分",
+results_submissions:"進度",results_export:"匯出 CSV",
+results_no_data:"尚無資料",results_detail:"明細",results_by_criterion:"各項目排序",
+results_sync_cloud:"雲端同步最新成績",results_syncing:"同步中...",results_sync_done:"同步完成！",
 gas_title:"部署 & 雲端設定指南",
 deploy_title:"如何啟用雙向雲端同步",
-deploy_step1:"步驟 1：建立 Google Sheets",deploy_step1_desc:"新建一個 Google Sheets，並開啟 Apps Script (擴充功能 -> Apps Script)。",
-deploy_step2:"步驟 2：貼上並部署 GAS 腳本",deploy_step2_desc:"將下方腳本貼上。點擊右上角「部署」->「新增部署作業」->「網頁應用程式 (Web App)」。",
-deploy_step3:"步驟 3：設定權限",deploy_step3_desc:"執行身分選「我 (Me)」，誰可以存取選「所有人 (Anyone)」。完成後複製 Web App URL。",
-deploy_step4:"步驟 4：將 URL 貼入 HTML",deploy_step4_desc:"用記事本打開這個 index.html 檔案，找到大約第 20 行 window.CLOUD_GAS_URL = \"\";，將網址貼在引號內，存檔後上傳至 GitHub Pages。",
-email_title:"寄送 Email 說明",
-gas_step1:"在雲端模式下，Google Sheets 會自動生成 Roster(名單)、Criteria(標準)、Submissions(成績) 等工作表。",
-gas_step2:"只要填好網址，您就可以在「登入碼」頁面直接點擊【雲端寄發登入碼】，系統會自動呼叫後端幫您發信。",
-gas_step3:"若要自動每天催繳，請到 Apps Script 左側點「觸發條件(時鐘圖示)」，新增一個時間驅動的觸發器執行 sendReminders 即可。",
+deploy_step1:"步驟 1：建立 Google Sheets",deploy_step1_desc:"新建 Google Sheets，開啟「擴充功能 -> Apps Script」。",
+deploy_step2:"步驟 2：部署 GAS 腳本",deploy_step2_desc:"貼上腳本。點擊「部署 -> 新增部署作業 -> 網頁應用程式」。",
+deploy_step3:"步驟 3：設定權限",deploy_step3_desc:"執行身分「我」，存取權「所有人」，複製 Web App URL。",
+deploy_step4:"步驟 4：貼入 HTML",deploy_step4_desc:"用記事本打開 index.html，在第20行 window.CLOUD_GAS_URL = \"\"; 內貼上網址。",
+email_title:"關於寄送 Email",
+gas_step1:"在雲端模式下，點擊【推送到雲端資料庫】會自動建立雲端資料表並同步 TA 帳號。",
+gas_step2:"您可以直接在「登入碼」頁面點擊按鈕，遠端遙控寄信。",
+gas_step3:"若要每天自動催繳，請在 Apps Script 中新增「時間驅動」的觸發條件執行 sendReminders。",
 gas_copy_script:"複製 GAS 腳本",gas_copied:"已複製！",
 theme_light:"淺色",theme_dark:"深色",lang_switch:"EN",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
 architect_label:"Architect:",architect_name:"Prof. Shihmin Lo",
 architect_url:"https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo",
-cloud_mode_on:"☁️ 雲端模式已啟用",cloud_mode_off:"💻 本機單機模式"
+cloud_mode_on:"☁️ 雲端模式啟用中",cloud_mode_off:"💻 本機單機模式"
 },
 en:{
 brand:"PEER",title:"Peer Evaluation System",subtitle:"Fair Group Scoring — Anonymous Ranking",
 login_title:"Login to Evaluate",login_code_label:"Enter your login code",login_code_ph:"Paste the code from your email",
-login_btn:"Start Evaluation",login_error:"Invalid code. Please check and try again.",login_already:"You have already submitted. Thank you!",
-admin_title:"Admin Panel",admin_btn:"Admin Mode",admin_pw_label:"Admin Password",admin_pw_ph:"Enter admin password",
-admin_enter:"Login",admin_back:"Back to Login",admin_reset:"Reset All Data",admin_reset_confirm:"Clear all data? This cannot be undone.",
+login_btn:"Start Evaluation",login_error:"Invalid code. Please try again.",login_already:"You have already submitted. Thank you!",
+admin_title:"Admin Panel",admin_btn:"Admin Mode",admin_pw_label:"Password",admin_pw_ph:"Enter password",
+admin_enter:"Login",admin_back:"Back to Login",admin_reset:"Reset Data",admin_reset_confirm:"Clear all data? This cannot be undone.",
 admin_user_label:"Username",admin_user_ph:"Enter username",
 admin_role_prof:"Professor",admin_role_ta:"TA",admin_logged_as:"Role",
 admin_tab_ta:"Accounts",admin_ta_title:"TA Account Management",admin_ta_add:"Add TA",
@@ -155,60 +160,58 @@ admin_ta_id:"Username",admin_ta_id_ph:"e.g., tina",
 admin_ta_pw:"Password",admin_ta_pw_ph:"Set password",
 admin_ta_remove:"Remove",admin_ta_remove_confirm:"Remove this TA account?",
 admin_ta_none:"No TA accounts yet",admin_ta_prof_note:"Professor account (cannot remove)",
-admin_tab_setup:"Setup",admin_tab_results:"Results",admin_tab_codes:"Codes",admin_tab_gas:"Deploy & GAS",
+admin_tab_setup:"Setup",admin_tab_results:"Results",admin_tab_codes:"Codes",admin_tab_gas:"Cloud Setup",
 setup_title:"Course Setup",
-setup_upload_roster:"Upload Student Roster",
-setup_upload_roster_desc:"Supports CSV, Excel (.xlsx/.xls), Word (.docx), PDF",
-setup_csv_format:"Columns: student_id, dept, name_zh, name_en, group (any order, fuzzy name matching)",
+setup_upload_roster:"Upload Roster",
+setup_upload_roster_desc:"Supports CSV, Excel, Word, PDF",
+setup_csv_format:"Columns: id, dept, name_zh, name_en, group",
 setup_csv_loaded:"Loaded {n} students in {g} groups",
-setup_roster_preview:"Student Roster Preview",setup_roster_dept:"Dept/Year",setup_roster_id:"Student ID",setup_roster_name_zh:"Chinese Name",setup_roster_name_en:"English Name",setup_roster_email:"Email",setup_roster_group:"Group",setup_roster_auto:"auto",setup_roster_manual:"manual",setup_roster_clear:"Clear Roster",setup_roster_edit_email:"Click email to edit manually",
+setup_roster_preview:"Roster Preview",setup_roster_dept:"Dept",setup_roster_id:"ID",setup_roster_name_zh:"Name (ZH)",setup_roster_name_en:"Name (EN)",setup_roster_email:"Email",setup_roster_group:"Group",setup_roster_auto:"auto",setup_roster_manual:"manual",setup_roster_clear:"Clear Roster",setup_roster_edit_email:"Click email to edit",
 setup_parsing:"Parsing...",setup_parse_error:"Parse error: {e}",
-setup_criteria_title:"Custom Rubric Criteria",
-setup_criteria_import:"Import Criteria from Document",
-setup_criteria_import_desc:"Upload a document with rubric criteria (PDF/Word/Excel/CSV/TXT) for auto-extraction",
+setup_criteria_title:"Custom Rubric",
+setup_criteria_import:"Import Rubric",
+setup_criteria_import_desc:"Upload document for auto-extraction",
 setup_criteria_importing:"AI extracting...",
 setup_add_criterion:"+ Add Criterion",
 setup_criterion_zh:"Chinese Name",setup_criterion_en:"English Name",
-setup_criterion_desc_zh:"Chinese Description (Rubric)",setup_criterion_desc_en:"English Description (Rubric)",
-setup_remove:"Remove",setup_weight_range:"Weighting Factor Range",setup_weight_min:"Min",setup_weight_max:"Max",
+setup_criterion_desc_zh:"Chinese Description",setup_criterion_desc_en:"English Description",
+setup_remove:"Remove",setup_weight_range:"Weight Factor",setup_weight_min:"Min",setup_weight_max:"Max",
 setup_save:"Save Settings",setup_saved:"Settings saved!",
-setup_assignment:"Assignment Name",setup_assignment_ph:"e.g., Midterm Report",
-setup_group_score:"Group Assignment Score (by instructor)",setup_group_score_ph:"e.g., 85",setup_group_score_desc:"Weight factor × this score = individual score",
+setup_assignment:"Assignment",setup_assignment_ph:"e.g., Midterm Report",
+setup_group_score:"Group Score",setup_group_score_ph:"e.g., 85",setup_group_score_desc:"Weight factor × group score = final score",
 setup_deadline:"Deadline",setup_deadline_ph:"e.g., 2026-04-15",
-setup_eval_url:"Evaluation Page URL",setup_eval_url_ph:"Deployed URL",
-codes_title:"Login Code Management",codes_generate:"Generate Codes",
-codes_export_gas:"Copy Data for Email",
-codes_export_csv:"Export CSV",
-codes_copy_done:"Copied!",
-codes_push:"Push Setup to Cloud",codes_pushing:"Pushing...",codes_push_done:"Success! Roster synced to Google Sheets",codes_push_error:"Push failed: {e}",
-codes_cloud_send:"Cloud Send Codes", codes_cloud_remind:"Cloud Send Reminders", codes_sending:"Sending...",
-codes_send_confirm:"Are you sure you want to automatically send emails to students via cloud?\n\n(This sends emails directly from your Google account. Ensure data is pushed first.)",
+setup_eval_url:"App URL",setup_eval_url_ph:"Deployed URL",
+codes_title:"Login Codes",codes_generate:"Generate Codes",
+codes_export_gas:"Copy Data",codes_export_csv:"Export CSV",codes_copy_done:"Copied!",
+codes_push:"Push to Cloud",codes_pushing:"Pushing...",codes_push_done:"Cloud synced!",codes_push_error:"Push failed: {e}",
+codes_cloud_send:"Cloud Send Emails", codes_cloud_remind:"Cloud Send Reminders", codes_sending:"Sending...",
+codes_send_confirm:"Send emails to students via cloud?\n(Ensure data is pushed first)",
 codes_status:"Status",codes_submitted:"Submitted",codes_pending:"Pending",
 codes_code:"Code",codes_student:"Student",codes_group:"Group",
 eval_title:"Peer Evaluation",eval_criterion:"Criterion",
 eval_instruction:"Drag members into rank slots (1 = best, ties allowed)",
 eval_pool:"Members to rank",eval_rank:"Rank #{n}",
 eval_submit:"Submit Evaluation",eval_confirm_title:"Confirm Submission",
-eval_confirm_msg:"Rankings have been auto-calibrated. Once submitted, cannot change. Proceed?",
-eval_confirm_yes:"Confirm & Submit",eval_confirm_no:"Go Back",
-eval_success:"Evaluation submitted. Thank you!",eval_incomplete:"Please complete ranking for all criteria",
+eval_confirm_msg:"Rankings calibrated. Cannot change after submit. Proceed?",
+eval_confirm_yes:"Submit",eval_confirm_no:"Go Back",
+eval_success:"Evaluation submitted. Thank you!",eval_incomplete:"Complete ranking for all criteria",
 eval_self_note:"(self)",
-results_title:"Evaluation Results",results_group:"Group",results_student:"Student",
-results_avg_rank:"Avg Rank",results_percentile:"Percentile",results_weight:"Weight Factor",
-results_group_score:"Group Score",results_final_score:"Final Score",
-results_submissions:"Submitted / Total",results_export:"Export Results CSV",
-results_no_data:"No evaluation data yet",results_detail:"Details",results_by_criterion:"Ranking by Criterion",
-results_sync_cloud:"Sync Latest from Cloud",results_syncing:"Syncing...",results_sync_done:"Cloud sync complete!",
-gas_title:"Deploy & Cloud Setup Guide",
-deploy_title:"How to Enable Cloud Sync",
-deploy_step1:"Step 1: Create Google Sheets",deploy_step1_desc:"Create a new Google Sheets -> Extensions -> Apps Script.",
-deploy_step2:"Step 2: Paste and Deploy",deploy_step2_desc:"Paste the script below. Click Deploy -> New Deployment -> Web App.",
-deploy_step3:"Step 3: Access Permissions",deploy_step3_desc:"Execute as 'Me', Access 'Anyone'. Copy the Web App URL.",
-deploy_step4:"Step 4: Update HTML File",deploy_step4_desc:"Open index.html in a text editor, paste the URL into window.CLOUD_GAS_URL = \"\"; around line 20. Save and upload to GitHub Pages.",
-email_title:"Sending Emails",
-gas_step1:"In Cloud Mode, Google Sheets auto-creates Roster, Criteria, and Submissions sheets.",
-gas_step2:"You can directly click 'Cloud Send Codes' on the Codes tab to trigger emails via the backend.",
-gas_step3:"For auto-reminders, go to Apps Script -> Triggers (clock icon) -> add time-driven trigger for sendReminders.",
+results_title:"Results",results_group:"Group",results_student:"Student",
+results_avg_rank:"Avg Rank",results_percentile:"PR",results_weight:"Weight",
+results_group_score:"Grp Score",results_final_score:"Final Score",
+results_submissions:"Progress",results_export:"Export CSV",
+results_no_data:"No data yet",results_detail:"Details",results_by_criterion:"By Criterion",
+results_sync_cloud:"Sync from Cloud",results_syncing:"Syncing...",results_sync_done:"Sync complete!",
+gas_title:"Cloud Setup Guide",
+deploy_title:"How to Enable Cloud",
+deploy_step1:"Step 1: Google Sheets",deploy_step1_desc:"Create Sheets -> Extensions -> Apps Script.",
+deploy_step2:"Step 2: Deploy",deploy_step2_desc:"Paste script. Deploy -> New Deployment -> Web App.",
+deploy_step3:"Step 3: Access",deploy_step3_desc:"Execute as 'Me', Access 'Anyone'. Copy URL.",
+deploy_step4:"Step 4: Update HTML",deploy_step4_desc:"Paste URL into window.CLOUD_GAS_URL = \"\"; around line 20.",
+email_title:"About Emails",
+gas_step1:"Pushing to cloud automatically creates required sheets and syncs TA accounts.",
+gas_step2:"Use buttons in Codes tab to send emails remotely.",
+gas_step3:"Add time-driven trigger for sendReminders in Apps Script for daily automation.",
 gas_copy_script:"Copy GAS Script",gas_copied:"Copied!",
 theme_light:"Light",theme_dark:"Dark",lang_switch:"中",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
@@ -247,24 +250,20 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
 
-    // ─── 新增：遠端發信 API ───
+    // ─── 遠端發信 API ───
     if (action === 'send_codes' || action === 'send_reminders') {
       const sets = ss.getSheetByName('Settings').getDataRange().getValues();
-      let realPw = 'admin2026';
+      let users = [];
       for(let i=1; i<sets.length; i++) {
-        if(sets[i][0] === 'admin_pw') realPw = sets[i][1];
+        if(sets[i][0] === 'users') { try { users = JSON.parse(sets[i][1]); } catch(e){} }
       }
-      if (data.pw !== realPw) throw new Error('Unauthorized');
+      const validUser = users.find(u => u.password === data.pw);
+      if (!validUser) throw new Error('Unauthorized');
       
-      if (action === 'send_codes') {
-        output.message = doSendLoginCodes();
-      } else {
-        output.message = doSendReminders();
-      }
+      output.message = action === 'send_codes' ? doSendLoginCodes() : doSendReminders();
       output.ok = true;
       return ContentService.createTextOutput(JSON.stringify(output)).setMimeType(ContentService.MimeType.JSON);
     }
-    // ──────────────────────
 
     if (action === 'push_setup') {
       const rSheet = ss.getSheetByName('Roster');
@@ -280,7 +279,7 @@ function doPost(e) {
       const sSheet = ss.getSheetByName('Settings');
       sSheet.clear();
       sSheet.appendRow(['key', 'value']);
-      sSheet.appendRow(['admin_pw', data.adminPw || 'admin2026']);
+      sSheet.appendRow(['users', JSON.stringify(data.users || [])]);
       sSheet.appendRow(['assignment', data.assignment || '']);
       sSheet.appendRow(['deadline', data.deadline || '']);
       sSheet.appendRow(['eval_url', data.evalUrl || '']);
@@ -336,23 +335,66 @@ function doPost(e) {
       ss.getSheetByName('Submissions').appendRow([sid, payload, new Date().toISOString()]);
       output.ok = true;
     }
-    else if (action === 'admin_fetch') {
+    // ─── TA / Admin 雲端登入與資料同步 ───
+    else if (action === 'admin_login' || action === 'admin_sync') {
       const sets = ss.getSheetByName('Settings').getDataRange().getValues();
-      let realPw = 'admin2026';
+      let users = [];
+      let assignment = '', deadline = '', evalUrl = '';
       for(let i=1; i<sets.length; i++) {
-        if(sets[i][0] === 'admin_pw') realPw = sets[i][1];
+        if(sets[i][0] === 'users') { try { users = JSON.parse(sets[i][1]); } catch(e){} }
+        if(sets[i][0] === 'assignment') assignment = sets[i][1];
+        if(sets[i][0] === 'deadline') deadline = sets[i][1];
+        if(sets[i][0] === 'eval_url') evalUrl = sets[i][1];
       }
-      if (data.pw !== realPw) throw new Error('Unauthorized');
 
-      const subs = ss.getSheetByName('Submissions').getDataRange().getValues();
-      const submissions = {};
-      for(let i=1; i<subs.length; i++) {
-        if(subs[i][0] && subs[i][1]) {
-          try { submissions[String(subs[i][0])] = JSON.parse(subs[i][1]); } catch(e){}
+      let user = null;
+      if (action === 'admin_login') {
+        const uid = String(data.uid || '').trim();
+        const pw = String(data.pw || '').trim();
+        if (users.length === 0) users = [{id:'prof',role:'professor',name:'Prof. Lo'}]; 
+        
+        user = users.find(u => u.id === uid && u.password === pw);
+        if (!user && users.find(u => u.role === 'professor' && u.password === pw)) {
+           user = users.find(u => u.role === 'professor' && u.password === pw);
         }
+        if (!user) throw new Error('帳號或密碼錯誤 (Invalid credentials)');
+      } else {
+        const pw = String(data.pw || '').trim();
+        if (!users.find(u => u.password === pw)) throw new Error('Unauthorized');
       }
+
+      const rosterRaw = ss.getSheetByName('Roster') ? ss.getSheetByName('Roster').getDataRange().getValues() : [];
+      const students = []; const codes = {};
+      for(let i=1; i<rosterRaw.length; i++) {
+         const sid = String(rosterRaw[i][0]);
+         students.push({ student_id: sid, name_zh: rosterRaw[i][1], name_en: rosterRaw[i][2], email: rosterRaw[i][3], group: rosterRaw[i][4] });
+         codes[sid] = String(rosterRaw[i][5]);
+      }
+
+      const critsRaw = ss.getSheetByName('Criteria') ? ss.getSheetByName('Criteria').getDataRange().getValues() : [];
+      const criteria = [];
+      for(let i=1; i<critsRaw.length; i++) {
+         criteria.push({ id: critsRaw[i][0], name_zh: critsRaw[i][1], name_en: critsRaw[i][2], desc_zh: critsRaw[i][3], desc_en: critsRaw[i][4] });
+      }
+
+      const subsRaw = ss.getSheetByName('Submissions') ? ss.getSheetByName('Submissions').getDataRange().getValues() : [];
+      const submissions = {};
+      for(let i=1; i<subsRaw.length; i++) {
+         if(subsRaw[i][0] && subsRaw[i][1]) {
+            try { submissions[String(subsRaw[i][0])] = JSON.parse(subsRaw[i][1]); } catch(e){}
+         }
+      }
+
       output.ok = true;
+      if (user) output.user = user;
+      output.users = users;
+      output.students = students;
+      output.codes = codes;
+      output.criteria = criteria;
       output.submissions = submissions;
+      output.assignment = assignment;
+      output.deadline = deadline;
+      output.evalUrl = evalUrl;
     }
   } catch (err) {
     output.ok = false;
@@ -367,7 +409,6 @@ function getSetting(key) {
   return '';
 }
 
-// 分離 UI 提示與寄信邏輯，讓遠端 API 可以呼叫
 function doSendLoginCodes() {
   const ss = SpreadsheetApp.getActive();
   const roster = ss.getSheetByName('Roster');
@@ -378,19 +419,11 @@ function doSendLoginCodes() {
   const deadline = getSetting('deadline');
   const evalUrl = getSetting('eval_url');
   
-  let sent = 0;
-  let skipped = 0;
-  let failed = 0;
-  let lastErr = '';
-  
+  let sent = 0, skipped = 0, failed = 0, lastErr = '';
   for (let i = 1; i < data.length; i++) {
     const email = String(data[i][3]).trim();
     const code = String(data[i][5]).trim();
-    // 檢查是否有 email、是否有 @ 符號，以及是否有登入碼
-    if (!email || !code || !email.includes('@')) {
-      skipped++;
-      continue;
-    }
+    if (!email || !code || !email.includes('@')) { skipped++; continue; }
     
     const subject = '[Peer Eval] 同儕互評登入碼 Login Code';
     const html = '<div style="font-family:sans-serif;padding:20px">'
@@ -398,22 +431,14 @@ function doSendLoginCodes() {
       + '<p>同學您好：<br>請使用下方登入碼完成 <b>' + assign + '</b> 的同儕互評。</p>'
       + '<div style="background:#f0fdf4;border:2px solid #166534;padding:15px;text-align:center;font-size:24px;font-weight:bold;letter-spacing:2px;margin:20px 0;">' + code + '</div>'
       + '<p>截止期限 Deadline: ' + deadline + '</p>'
-      + '<a href="' + evalUrl + '" style="background:#166534;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">前往互評 Enter -></a>'
-      + '</div>';
+      + '<a href="' + evalUrl + '" style="background:#166534;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">前往互評 Enter -></a></div>';
     
-    try { 
-      MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); 
-      sent++; 
-      Utilities.sleep(300); // 稍微暫停避免觸發 Google 發信頻率限制
-    } catch(e) {
-      failed++;
-      lastErr = e.message;
-    }
+    try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } 
+    catch(e) { failed++; lastErr = e.message; }
   }
-  
   let res = '處理 ' + (data.length - 1) + ' 筆資料\\n✅ 成功：' + sent;
-  if(skipped > 0) res += '\\n⚠️ 跳過(無效Email/無登入碼)：' + skipped;
-  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (錯誤原因：' + lastErr + ')';
+  if(skipped > 0) res += '\\n⚠️ 跳過(無效信箱)：' + skipped;
+  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (' + lastErr + ')';
   return res;
 }
 
@@ -431,49 +456,28 @@ function doSendReminders() {
   const subMap = new Set();
   for(let i=1; i<sData.length; i++) subMap.add(String(sData[i][0]));
 
-  let sent = 0;
-  let skipped = 0;
-  let failed = 0;
-  let lastErr = '';
-
+  let sent = 0, skipped = 0, failed = 0, lastErr = '';
   for (let i = 1; i < rData.length; i++) {
     const sid = String(rData[i][0]);
     const email = String(rData[i][3]).trim();
     const code = String(rData[i][5]).trim();
     
-    if (!email || !code || !email.includes('@') || subMap.has(sid)) {
-      skipped++;
-      continue;
-    }
+    if (!email || !code || !email.includes('@') || subMap.has(sid)) { skipped++; continue; }
     
     const subject = '[提醒 Reminder] 互評尚未完成 Evaluation Pending';
     const html = '<div style="font-family:sans-serif;padding:20px"><h2>⏰ 互評尚未完成</h2><p>您尚未完成 <b>' + assign + '</b> 的同儕互評，您的登入碼為 <b>' + code + '</b>，請盡快至系統填寫：</p><p><a href="' + evalUrl + '">點此進入系統</a></p></div>';
     
-    try { 
-      MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); 
-      sent++; 
-      Utilities.sleep(300); 
-    } catch(e) {
-      failed++;
-      lastErr = e.message;
-    }
+    try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } 
+    catch(e) { failed++; lastErr = e.message; }
   }
-  
   let res = '催繳處理：\\n✅ 成功：' + sent;
-  if(skipped > 0) res += '\\n⚠️ 跳過(無效Email/已提交)：' + skipped;
-  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (錯誤原因：' + lastErr + ')';
+  if(skipped > 0) res += '\\n⚠️ 跳過(已交或無效)：' + skipped;
+  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (' + lastErr + ')';
   return res;
 }
 
-// 提供 Google Sheets 介面的選單點擊使用
-function sendLoginCodes() {
-  const msg = doSendLoginCodes();
-  if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg);
-}
-function sendReminders() {
-  const msg = doSendReminders();
-  if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg);
-}
+function sendLoginCodes() { const msg = doSendLoginCodes(); if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg); }
+function sendReminders() { const msg = doSendReminders(); if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg); }
 `;
 
 // ─── Icons ───
@@ -492,7 +496,6 @@ const IconBarChart=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20}
 const IconKey=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>;
 const IconCopy=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
 const IconCode=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>;
-const IconFile=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
 const IconCloud=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M17.5 19A5.5 5.5 0 0 0 18 8h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg>;
 const IconSpinner=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`animate-spin ${p.className||""}`}><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
 const IconMail=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>;
@@ -915,7 +918,7 @@ const App=()=>{
   
   const[pushStatus,setPushStatus]=useState(null);
   const[syncStatus,setSyncStatus]=useState(null);
-  const[isSendingEmails,setIsSendingEmails]=useState(false); // 控制雲端發信狀態
+  const[isSendingEmails,setIsSendingEmails]=useState(false); 
 
   const[store,setStoreState]=useState(()=>{
     const s=loadStore();
@@ -986,26 +989,52 @@ const App=()=>{
     }
   };
 
-  const doAdminLogin=()=>{
+  // ─── Admin / TA 登入 (雲端支援同步) ───
+  const doAdminLogin = async () => {
     const uid = (adminUserRef.current?.value || '').trim();
     const pw = (adminPwRef.current?.value || '').trim();
-    let allUsers = store.users || [];
-    if (allUsers.length === 0) {
-      allUsers = [{id:'prof',role:'professor',name:'Prof. Lo',password:store.adminPassword||'admin2026'}];
-      updateStore({users:allUsers});
+    
+    if (isCloudMode) {
+      setIsSubmitting(true);
+      try {
+        const res = await apiFetch({ action: 'admin_login', uid, pw });
+        // 驗證成功後，將雲端最新的所有資料覆蓋到本機 (TA登入時也能抓到資料)
+        updateStore({
+          users: res.users,
+          students: res.students,
+          codes: res.codes,
+          criteria: res.criteria,
+          submissions: res.submissions,
+          assignment: res.assignment,
+          deadline: res.deadline,
+          evalUrl: res.evalUrl
+        });
+        setAdminRole(res.user.role);
+        setAdminUser(res.user);
+        setView('admin');
+      } catch (err) {
+        showAlert(err.message);
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      // 本機版驗證
+      let allUsers = store.users || [];
+      if (allUsers.length === 0) {
+        allUsers = [{id:'prof',role:'professor',name:'Prof. Lo',password:store.adminPassword||'admin2026'}];
+        updateStore({users:allUsers});
+      }
+      const found = allUsers.find(u => u.id === uid && u.password === pw);
+      if (found) { setAdminRole(found.role); setAdminUser(found); setView('admin'); return; }
+
+      const prof = allUsers.find(u => u.role === 'professor' && u.password === pw);
+      if (prof && (!uid || uid === prof.id)) { setAdminRole('professor'); setAdminUser(prof); setView('admin'); return; }
+
+      if ((!uid || uid === 'prof') && pw === (store.adminPassword || 'admin2026')) {
+        setAdminRole('professor'); setAdminUser({id:'prof',role:'professor',name:'Prof. Lo'}); setView('admin'); return;
+      }
+      showAlert(lang==='zh' ? '帳號或密碼錯誤' : 'Invalid username or password');
     }
-
-    const found = allUsers.find(u => u.id === uid && u.password === pw);
-    if (found) { setAdminRole(found.role); setAdminUser(found); setView('admin'); return; }
-
-    const prof = allUsers.find(u => u.role === 'professor' && u.password === pw);
-    if (prof && (!uid || uid === prof.id)) { setAdminRole('professor'); setAdminUser(prof); setView('admin'); return; }
-
-    if ((!uid || uid === 'prof') && pw === (store.adminPassword || 'admin2026')) {
-      setAdminRole('professor'); setAdminUser({id:'prof',role:'professor',name:'Prof. Lo'}); setView('admin'); return;
-    }
-
-    showAlert(lang==='zh' ? '帳號或密碼錯誤' : 'Invalid username or password');
   };
 
   // ─── 學生送出成績 ───
@@ -1046,6 +1075,7 @@ const App=()=>{
       const students = store.students.map(s=>({ ...s, code: store.codes[s.student_id]||'' }));
       await apiFetch({
         action: 'push_setup', students, criteria: store.criteria,
+        users: store.users, // 把 TA 名單一起推上去！
         adminPw: store.users.find(u=>u.role==='professor')?.password || 'admin2026', 
         assignment: store.assignment, deadline: store.deadline, evalUrl: store.evalUrl
       });
@@ -1078,8 +1108,17 @@ const App=()=>{
     setSyncStatus('syncing');
     try {
       const pw = adminPwRef.current?.value || store.users.find(u=>u.role==='professor')?.password || 'admin2026';
-      const data = await apiFetch({ action: 'admin_fetch', pw });
-      updateStore({ submissions: { ...store.submissions, ...data.submissions } });
+      const data = await apiFetch({ action: 'admin_sync', pw });
+      updateStore({ 
+        users: data.users || store.users,
+        students: data.students || store.students,
+        codes: data.codes || store.codes,
+        criteria: data.criteria || store.criteria,
+        submissions: data.submissions || store.submissions,
+        assignment: data.assignment || store.assignment,
+        deadline: data.deadline || store.deadline,
+        evalUrl: data.evalUrl || store.evalUrl
+      });
       setSyncStatus('done'); setTimeout(()=>setSyncStatus(null), 3000);
     } catch(err) {
       showAlert("Sync failed: " + err.message);
@@ -1177,15 +1216,15 @@ const App=()=>{
 
   // ─── Render Functions ───
   const renderHeader=()=>(
-    <header className="fixed top-0 left-0 right-0 h-16 z-50 bg-[#004030] flex items-center justify-between px-4 shadow-lg">
-      <div className="flex items-center gap-3 cursor-pointer" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
-        <span className="font-serif font-black text-[#D8C3A5] tracking-widest text-xl">{t.brand}</span>
-        <span className="text-white/80 text-sm font-sans hidden sm:block">{t.title}</span>
-        {isCloudMode && <span className="hidden md:inline-flex items-center gap-1 bg-green-900/40 text-green-300 px-2 py-0.5 rounded text-xs ml-2"><IconCloud size={14}/>Cloud</span>}
+    <header className="fixed top-0 left-0 right-0 h-14 sm:h-16 z-50 bg-[#004030] flex items-center justify-between px-3 sm:px-4 shadow-lg">
+      <div className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+        <span className="font-serif font-black text-[#D8C3A5] tracking-widest text-lg sm:text-xl shrink-0">{t.brand}</span>
+        <span className="text-white/80 text-xs sm:text-sm font-sans truncate hidden sm:block">{t.title}</span>
+        {isCloudMode && <span className="hidden md:inline-flex items-center gap-1 bg-green-900/40 text-green-300 px-2 py-0.5 rounded text-xs ml-2 shrink-0"><IconCloud size={14}/>Cloud</span>}
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={()=>setLang(lang==='zh'?'en':'zh')} className="px-3 py-1.5 text-xs font-bold text-[#D8C3A5] border border-[#D8C3A5]/30 rounded-lg hover:bg-[#D8C3A5]/10 transition">{t.lang_switch}</button>
-        <button onClick={()=>setDark(!dark)} className="p-2 text-[#D8C3A5] hover:bg-[#D8C3A5]/10 rounded-lg transition">{dark?<IconSun size={18}/>:<IconMoon size={18}/>}</button>
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <button onClick={()=>setLang(lang==='zh'?'en':'zh')} className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-bold text-[#D8C3A5] border border-[#D8C3A5]/30 rounded-lg hover:bg-[#D8C3A5]/10 transition">{t.lang_switch}</button>
+        <button onClick={()=>setDark(!dark)} className="p-1.5 sm:p-2 text-[#D8C3A5] hover:bg-[#D8C3A5]/10 rounded-lg transition">{dark?<IconSun size={16}/>:<IconMoon size={16}/>}</button>
       </div>
     </header>
   );
@@ -1200,29 +1239,29 @@ const App=()=>{
   );
 
   const renderLoginView=()=>(
-    <div className="min-h-screen flex items-center justify-center p-4 pt-20">
+    <div className="min-h-screen flex items-center justify-center p-4 pt-16 sm:pt-20">
       <div className="w-full max-w-md animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-200 dark:border-slate-700 relative overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 relative overflow-hidden">
           <div className={`absolute top-0 left-0 right-0 py-1.5 text-center text-xs font-bold flex justify-center items-center gap-1.5 ${isCloudMode?'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400':'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
             {isCloudMode ? <><IconCloud size={14}/> {t.cloud_mode_on}</> : <><IconCode size={14}/> {t.cloud_mode_off}</>}
           </div>
-          <div className="text-center mb-8 mt-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#004030] dark:bg-[#D8C3A5]/10 flex items-center justify-center"><IconShield size={32} className="text-[#D8C3A5]"/></div>
-            <h1 className="font-serif font-bold text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.login_title}</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">{t.subtitle}</p>
+          <div className="text-center mb-6 sm:mb-8 mt-4 sm:mt-6">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-2xl bg-[#004030] dark:bg-[#D8C3A5]/10 flex items-center justify-center"><IconShield size={28} className="text-[#D8C3A5]"/></div>
+            <h1 className="font-serif font-bold text-xl sm:text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.login_title}</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 sm:mt-2">{t.subtitle}</p>
           </div>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">{t.login_code_label}</label>
               <input ref={studentCodeRef} type="text" onKeyDown={e=>{if(e.key==='Enter') doStudentLogin()}}
-                disabled={isSubmitting} placeholder={t.login_code_ph} className={inputCls + " font-mono text-lg tracking-widest"}/>
+                disabled={isSubmitting} placeholder={t.login_code_ph} className={inputCls + " font-mono text-base sm:text-lg tracking-widest"}/>
             </div>
             <button onClick={doStudentLogin} disabled={isSubmitting}
               className="w-full py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold rounded-xl hover:opacity-90 transition shadow-md flex justify-center items-center disabled:opacity-70">
               {isSubmitting ? <IconSpinner size={20}/> : t.login_btn}
             </button>
           </div>
-          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
+          <div className="mt-5 sm:mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
             <button onClick={()=>{setView('admin_login');}} className="text-sm text-slate-400 hover:text-[#004030] dark:hover:text-[#D8C3A5] transition flex items-center gap-1 mx-auto"><IconKey size={14}/> {t.admin_btn}</button>
           </div>
         </div>
@@ -1231,10 +1270,10 @@ const App=()=>{
   );
 
   const renderAdminLoginView=()=>(
-    <div className="min-h-screen flex items-center justify-center p-4 pt-20">
+    <div className="min-h-screen flex items-center justify-center p-4 pt-16 sm:pt-20">
       <div className="w-full max-w-md animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
-          <h2 className="font-serif font-bold text-xl text-[#004030] dark:text-[#D8C3A5] mb-6">{t.admin_title}</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700">
+          <h2 className="font-serif font-bold text-lg sm:text-xl text-[#004030] dark:text-[#D8C3A5] mb-5 sm:mb-6">{t.admin_title}</h2>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">{t.admin_user_label}</label>
@@ -1245,7 +1284,9 @@ const App=()=>{
               <input ref={adminPwRef} type="password" onKeyDown={e=>{if(e.key==='Enter') doAdminLogin()}}
                 placeholder={t.admin_pw_ph} className={inputCls}/>
             </div>
-            <button onClick={doAdminLogin} className="w-full py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold rounded-xl hover:opacity-90 transition">{t.admin_enter}</button>
+            <button onClick={doAdminLogin} disabled={isSubmitting} className="w-full py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold rounded-xl hover:opacity-90 transition flex justify-center items-center">
+              {isSubmitting ? <IconSpinner size={20}/> : t.admin_enter}
+            </button>
             <button onClick={()=>{if(adminUserRef.current) adminUserRef.current.value='';if(adminPwRef.current) adminPwRef.current.value='';setView('login');}} className="w-full py-2 text-sm text-slate-500 hover:text-[#004030] dark:hover:text-[#D8C3A5]">← {t.admin_back}</button>
           </div>
         </div>
@@ -1256,22 +1297,22 @@ const App=()=>{
   const renderAdminView=()=>{
     const isProf=adminRole==='professor';
     return (
-      <div className="min-h-screen pt-20 pb-12 px-4">
+      <div className="min-h-screen pt-16 sm:pt-20 pb-12 px-2 sm:px-4">
         <div className="max-w-5xl mx-auto animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <h1 className="font-serif font-bold text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.admin_title}</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isProf?'bg-[#004030]/10 text-[#004030] dark:bg-[#D8C3A5]/10 dark:text-[#D8C3A5]':'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                {isProf?t.admin_role_prof:t.admin_role_ta}{adminUser?' · '+adminUser.name:''}
+          <div className="flex items-center justify-between mb-4 sm:mb-6 px-1">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <h1 className="font-serif font-bold text-lg sm:text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.admin_title}</h1>
+              <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium ${isProf?'bg-[#004030]/10 text-[#004030] dark:bg-[#D8C3A5]/10 dark:text-[#D8C3A5]':'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                {isProf?t.admin_role_prof:t.admin_role_ta}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              {isProf&&<button onClick={()=>{showConfirmDialog(t.admin_reset_confirm, ()=>resetStore())}} className="text-xs text-red-400 hover:text-red-600 transition">{t.admin_reset}</button>}
-              <button onClick={()=>{setView('login');setAdminRole(null);setAdminUser(null)}} className="text-sm text-slate-500 hover:text-[#004030] dark:hover:text-[#D8C3A5]">← {t.admin_back}</button>
+              {isProf&&<button onClick={()=>{showConfirmDialog(t.admin_reset_confirm, ()=>resetStore())}} className="text-xs text-red-400 hover:text-red-600 transition hidden sm:inline-block">{t.admin_reset}</button>}
+              <button onClick={()=>{setView('login');setAdminRole(null);setAdminUser(null)}} className="text-xs sm:text-sm text-slate-500 hover:text-[#004030] dark:hover:text-[#D8C3A5]">← {t.admin_back}</button>
             </div>
           </div>
           
-          <div className="flex gap-1 mb-6 bg-slate-200 dark:bg-slate-700 rounded-xl p-1 overflow-x-auto">
+          <div className="flex gap-2 mb-4 sm:mb-6 bg-slate-200 dark:bg-slate-700 rounded-xl p-1.5 overflow-x-auto snap-x hide-scrollbar">
             {[{key:'setup',icon:<IconClipboard size={16}/>,label:t.admin_tab_setup},
               {key:'codes',icon:<IconKey size={16}/>,label:t.admin_tab_codes},
               {key:'results',icon:<IconBarChart size={16}/>,label:t.admin_tab_results},
@@ -1279,15 +1320,15 @@ const App=()=>{
               {key:'gas',icon:<IconCloud size={16}/>,label:t.admin_tab_gas}
             ].map(tab=>(
               <button key={tab.key} onClick={()=>setAdminTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap px-3
+                className={`shrink-0 snap-center flex items-center justify-center gap-2 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition whitespace-nowrap px-3 sm:px-4
                   ${adminTab===tab.key?'bg-white dark:bg-slate-800 text-[#004030] dark:text-[#D8C3A5] shadow-sm':'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
-                {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
+                {tab.icon} <span>{tab.label}</span>
               </button>
             ))}
           </div>
 
-          {adminTab==='setup'&&<div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 space-y-4">
+          {adminTab==='setup'&&<div className="space-y-4 sm:space-y-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">{t.setup_assignment}</label>
                 <input type="text" defaultValue={store.assignment} onBlur={e=>updateStore({assignment:e.target.value})} placeholder={t.setup_assignment_ph} className={inputCls}/>
@@ -1304,39 +1345,39 @@ const App=()=>{
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5] mb-1 flex items-center gap-2"><IconUpload size={18}/>{t.setup_upload_roster}</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5] mb-1 flex items-center gap-2"><IconUpload size={18}/>{t.setup_upload_roster}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t.setup_upload_roster_desc}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 font-mono bg-slate-50 dark:bg-slate-700 p-2 rounded-lg">{t.setup_csv_format}</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mb-3 font-mono bg-slate-50 dark:bg-slate-700 p-2 rounded-lg">{t.setup_csv_format}</p>
               <input type="file" accept=".csv,.tsv,.xlsx,.xls,.docx,.pdf,.txt" onChange={handleRosterUpload}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-[#004030] file:text-white dark:file:bg-[#D8C3A5] dark:file:text-[#004030] hover:file:opacity-90 cursor-pointer"/>
+                className="block w-full text-xs sm:text-sm text-slate-500 file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-[#004030] file:text-white dark:file:bg-[#D8C3A5] dark:file:text-[#004030] hover:file:opacity-90 cursor-pointer"/>
               {parsing&&<p className="mt-2 text-sm text-amber-600 animate-pulse">{t.setup_parsing}</p>}
               {parseMsg&&<p className={`mt-2 text-sm flex items-center gap-1 ${parseMsg.ok?'text-green-600 dark:text-green-400':'text-red-500'}`}>{parseMsg.ok?<><IconCheck size={16}/>{t.setup_csv_loaded.replace('{n}',parseMsg.n).replace('{g}',parseMsg.g)}</>:<><IconX size={16}/>{t.setup_parse_error.replace('{e}',parseMsg.e)}</>}</p>}
             </div>
 
             {store.students.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="px-5 py-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
-                <h3 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2">
-                  <IconUsers size={18}/>{t.setup_roster_preview}
-                  <span className="text-xs font-normal text-slate-500 font-sans">({store.students.length}{lang==='zh'?'人':'p'}, {groupNames.length}{lang==='zh'?'組':'g'})</span>
+              <div className="px-4 py-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
+                <h3 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2 text-sm sm:text-base">
+                  <IconUsers size={16}/>{t.setup_roster_preview}
+                  <span className="text-[10px] sm:text-xs font-normal text-slate-500 font-sans">({store.students.length}{lang==='zh'?'人':'p'}, {groupNames.length}{lang==='zh'?'組':'g'})</span>
                 </h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400">{t.setup_roster_edit_email}</span>
+                  <span className="text-[10px] sm:text-xs text-slate-400 hidden sm:inline">{t.setup_roster_edit_email}</span>
                   {isProf&&<button onClick={()=>{showConfirmDialog(lang==='zh'?'確定清除學生名單？登入碼與提交記錄也會一併清除，此操作無法復原。':'Clear student roster?', ()=>updateStore({students:[],codes:{},submissions:{},groupScores:{}}))}}
                     className="text-xs text-red-400 hover:text-red-600 transition">{t.setup_roster_clear}</button>}
                 </div>
               </div>
-              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto max-h-[420px] overflow-y-auto hide-scrollbar w-full">
+                <table className="w-full text-sm min-w-[600px]">
                   <thead className="bg-slate-50 dark:bg-slate-700/50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">#</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_id}</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_dept}</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_name_zh}</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_name_en}</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_group}</th>
-                      <th className="px-3 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_email}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">#</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_id}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_dept}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_name_zh}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_name_en}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_group}</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300 text-xs">{t.setup_roster_email}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -1344,22 +1385,19 @@ const App=()=>{
                       const isAuto=s.email===('s'+String(s.student_id).replace(/^s/i,'')+'@mail1.ncnu.edu.tw');
                       return(
                       <tr key={s.student_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 group">
-                        <td className="px-3 py-2 text-slate-400 text-xs">{idx+1}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-slate-700 dark:text-slate-300">{s.student_id}</td>
-                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{s.dept||'-'}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{s.name_zh}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{s.name_en}</td>
-                        <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full bg-[#004030]/10 dark:bg-[#D8C3A5]/10 text-[#004030] dark:text-[#D8C3A5] text-xs font-medium">{s.group}</span></td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5 text-slate-400 text-[10px] sm:text-xs">{idx+1}</td>
+                        <td className="px-3 py-1.5 font-mono text-[10px] sm:text-xs text-slate-700 dark:text-slate-300">{s.student_id}</td>
+                        <td className="px-3 py-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">{s.dept||'-'}</td>
+                        <td className="px-3 py-1.5 text-[10px] sm:text-xs text-slate-700 dark:text-slate-300">{s.name_zh}</td>
+                        <td className="px-3 py-1.5 text-[10px] sm:text-xs text-slate-700 dark:text-slate-300">{s.name_en}</td>
+                        <td className="px-3 py-1.5"><span className="px-2 py-0.5 rounded-full bg-[#004030]/10 dark:bg-[#D8C3A5]/10 text-[#004030] dark:text-[#D8C3A5] text-[10px] sm:text-xs font-medium">{s.group}</span></td>
+                        <td className="px-3 py-1.5">
                           <div className="flex items-center gap-1.5">
                             <input type="text" defaultValue={s.email}
                               onBlur={e=>{const newEmail=e.target.value.trim();if(newEmail&&newEmail!==s.email){
                                 updateStore({students:store.students.map(st=>st.student_id===s.student_id?{...st,email:newEmail}:st)})
                               }}}
-                              className="text-xs font-mono bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-[#004030] dark:focus:border-[#D8C3A5] focus:outline-none text-slate-600 dark:text-slate-400 w-full min-w-[160px] py-0.5 transition"/>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${isAuto?'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400':'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
-                              {isAuto?t.setup_roster_auto:t.setup_roster_manual}
-                            </span>
+                              className="text-[10px] sm:text-xs font-mono bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-[#004030] dark:focus:border-[#D8C3A5] focus:outline-none text-slate-600 dark:text-slate-400 w-full min-w-[120px] sm:min-w-[160px] py-0.5 transition"/>
                           </div>
                         </td>
                       </tr>)
@@ -1369,86 +1407,85 @@ const App=()=>{
               </div>
             </div>}
 
-            {groupNames.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5] mb-1">{t.setup_group_score}</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">{t.setup_group_score_desc}</p>
+            {groupNames.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5] mb-1">{t.setup_group_score}</h3>
+              <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mb-3">{t.setup_group_score_desc}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {groupNames.map(g=><div key={g}>
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">{g} ({groups[g].length}{lang==='zh'?'人':'p'})</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-slate-500 mb-1 block">{g} ({groups[g].length}{lang==='zh'?'人':'p'})</label>
                   <input type="number" defaultValue={store.groupScores[g]||''} onBlur={e=>updateStore({groupScores:{...store.groupScores,[g]:e.target.value}})}
-                    placeholder={t.setup_group_score_ph} className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none text-sm"/>
+                    placeholder={t.setup_group_score_ph} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none text-xs sm:text-sm"/>
                 </div>)}
               </div>
             </div>}
 
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5]">{t.setup_criteria_title}</h3>
-                <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium border border-dashed border-[#004030]/30 dark:border-[#D8C3A5]/30 rounded-lg text-[#004030] dark:text-[#D8C3A5] hover:bg-[#004030]/5 dark:hover:bg-[#D8C3A5]/5 cursor-pointer transition">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-4">
+                <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5]">{t.setup_criteria_title}</h3>
+                <label className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium border border-dashed border-[#004030]/30 dark:border-[#D8C3A5]/30 rounded-lg text-[#004030] dark:text-[#D8C3A5] hover:bg-[#004030]/5 dark:hover:bg-[#D8C3A5]/5 cursor-pointer transition">
                   <IconFile size={14}/>{criteriaImporting?(t.setup_criteria_importing):t.setup_criteria_import}
                   <input type="file" accept=".csv,.tsv,.xlsx,.xls,.docx,.pdf,.txt" onChange={handleCriteriaImport} className="hidden"/>
                 </label>
               </div>
-              <p className="text-xs text-slate-400 mb-4">{t.setup_criteria_import_desc}</p>
-              <div className="space-y-4">
+              <p className="text-[10px] sm:text-xs text-slate-400 mb-4">{t.setup_criteria_import_desc}</p>
+              <div className="space-y-3 sm:space-y-4">
                 {store.criteria.map((c,idx)=>(
-                  <div key={c.id} className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="font-bold text-[#004030] dark:text-[#D8C3A5] text-sm">#{idx+1}</span>
-                      {isProf&&<button onClick={()=>removeCriterion(c.id)} className="text-red-400 hover:text-red-600 text-xs">{t.setup_remove}</button>}
+                  <div key={c.id} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
+                    <div className="flex justify-between items-start mb-2 sm:mb-3">
+                      <span className="font-bold text-[#004030] dark:text-[#D8C3A5] text-xs sm:text-sm">#{idx+1}</span>
+                      {isProf&&<button onClick={()=>removeCriterion(c.id)} className="text-red-400 hover:text-red-600 text-[10px] sm:text-xs">{t.setup_remove}</button>}
                     </div>
                     <div className="space-y-2">
                       <div>
-                        <label className="text-xs text-slate-400 mb-0.5 block">{lang==='zh'?'名稱':'Name'}</label>
+                        <label className="text-[10px] sm:text-xs text-slate-400 mb-0.5 block">{lang==='zh'?'名稱':'Name'}</label>
                         <input key={c.id+'name'+lang} defaultValue={lang==='zh'?c.name_zh:c.name_en}
                           onBlur={e=>updateCriterion(c.id,lang==='zh'?'name_zh':'name_en',e.target.value)}
                           placeholder={lang==='zh'?t.setup_criterion_zh:t.setup_criterion_en}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 mb-0.5 block">{lang==='zh'?'說明（Rubric）':'Description (Rubric)'}</label>
+                        <label className="text-[10px] sm:text-xs text-slate-400 mb-0.5 block">{lang==='zh'?'說明（Rubric）':'Description (Rubric)'}</label>
                         <input key={c.id+'desc'+lang} defaultValue={lang==='zh'?c.desc_zh:c.desc_en}
                           onBlur={e=>updateCriterion(c.id,lang==='zh'?'desc_zh':'desc_en',e.target.value)}
                           placeholder={lang==='zh'?t.setup_criterion_desc_zh:t.setup_criterion_desc_en}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <button onClick={addCriterion} className="mt-4 px-4 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-sm text-slate-500 hover:border-[#004030] hover:text-[#004030] dark:hover:border-[#D8C3A5] dark:hover:text-[#D8C3A5] transition w-full">{t.setup_add_criterion}</button>
+              <button onClick={addCriterion} className="mt-4 px-4 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-500 hover:border-[#004030] hover:text-[#004030] dark:hover:border-[#D8C3A5] dark:hover:text-[#D8C3A5] transition w-full">{t.setup_add_criterion}</button>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5] mb-3">{t.setup_weight_range}</h3>
-              <div className="flex gap-4 items-center">
-                <div><label className="text-xs text-slate-500 mb-1 block">{t.setup_weight_min}</label>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5] mb-3">{t.setup_weight_range}</h3>
+              <div className="flex gap-2 sm:gap-4 items-center">
+                <div><label className="text-[10px] sm:text-xs text-slate-500 mb-1 block">{t.setup_weight_min}</label>
                   <input type="number" step="0.05" defaultValue={store.weightMin} onBlur={e=>updateStore({weightMin:parseFloat(e.target.value)||0.55})}
-                    className="w-24 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-center font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none"/></div>
-                <span className="text-slate-400 text-lg mt-5">~</span>
-                <div><label className="text-xs text-slate-500 mb-1 block">{t.setup_weight_max}</label>
+                    className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-xs sm:text-sm text-center font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none"/></div>
+                <span className="text-slate-400 text-base sm:text-lg mt-4 sm:mt-5">~</span>
+                <div><label className="text-[10px] sm:text-xs text-slate-500 mb-1 block">{t.setup_weight_max}</label>
                   <input type="number" step="0.05" defaultValue={store.weightMax} onBlur={e=>updateStore({weightMax:parseFloat(e.target.value)||1.45})}
-                    className="w-24 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-center font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none"/></div>
-                <span className="text-slate-400 text-sm mt-5">×</span>
+                    className="w-20 sm:w-24 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-xs sm:text-sm text-center font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-[#004030] focus:outline-none"/></div>
               </div>
             </div>
 
             <button onClick={()=>{saveStore(store);setSavedMsg(t.setup_saved);setTimeout(()=>setSavedMsg(''),2000)}}
-              className="w-full py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold rounded-xl hover:opacity-90 transition shadow-md">{t.setup_save}</button>
-            {savedMsg&&<p className="text-center text-green-600 dark:text-green-400 text-sm">{savedMsg}</p>}
+              className="w-full py-3 sm:py-4 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold text-sm sm:text-base rounded-xl hover:opacity-90 transition shadow-md">{t.setup_save}</button>
+            {savedMsg&&<p className="text-center text-green-600 dark:text-green-400 text-xs sm:text-sm">{savedMsg}</p>}
           </div>}
 
           {adminTab==='codes'&&<div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
-              <button onClick={handleGenerateCodes} className="px-5 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition flex items-center gap-2 text-sm"><IconRefresh size={16}/>{t.codes_generate}</button>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+              <button onClick={handleGenerateCodes} className="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition flex items-center gap-2 text-xs sm:text-sm"><IconRefresh size={16}/>{t.codes_generate}</button>
               
               {!isCloudMode ? (
-                <button onClick={handleCopyCodesForGAS} className="px-5 py-2.5 border-2 border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-xl hover:bg-[#004030]/5 transition flex items-center gap-2 text-sm">
+                <button onClick={handleCopyCodesForGAS} className="flex-1 sm:flex-none justify-center px-4 py-2.5 border-2 border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-xl hover:bg-[#004030]/5 transition flex items-center gap-2 text-xs sm:text-sm">
                   <IconCopy size={16}/>{codeCopied?t.codes_copy_done:t.codes_export_gas}
                 </button>
               ) : (
                 <button onClick={handlePushToCloud} disabled={pushStatus==='pushing'}
-                  className={`px-5 py-2.5 font-bold rounded-xl transition flex items-center gap-2 text-sm shadow-md ${
+                  className={`flex-1 sm:flex-none justify-center px-4 py-2.5 font-bold rounded-xl transition flex items-center gap-2 text-xs sm:text-sm shadow-md ${
                     pushStatus==='done'?'bg-green-600 text-white':
                     pushStatus==='pushing'?'bg-slate-300 text-slate-500 cursor-wait':
                     'bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] hover:opacity-90'
@@ -1460,45 +1497,45 @@ const App=()=>{
             </div>
             
             {isCloudMode && (
-              <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl p-5 border border-[#004030]/20 dark:border-[#D8C3A5]/20 mt-2">
-                 <h4 className="text-sm font-bold text-[#004030] dark:text-[#D8C3A5] mb-3 flex items-center gap-2">
-                    <IconMail size={18}/> 雲端發信控制台 (遠端操作 GAS)
+              <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl p-4 sm:p-5 border border-[#004030]/20 dark:border-[#D8C3A5]/20 mt-2">
+                 <h4 className="text-xs sm:text-sm font-bold text-[#004030] dark:text-[#D8C3A5] mb-3 flex items-center gap-2">
+                    <IconMail size={16} className="sm:w-[18px] sm:h-[18px]"/> 雲端發信控制台 (遠端操作 GAS)
                  </h4>
-                 <div className="flex flex-wrap gap-3">
+                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
                    <button onClick={()=>handleCloudSendEmails('codes')} disabled={isSendingEmails}
-                      className="px-4 py-2 bg-white dark:bg-slate-800 border border-[#004030]/30 dark:border-[#D8C3A5]/30 text-[#004030] dark:text-[#D8C3A5] rounded-lg text-sm font-medium hover:bg-[#004030]/10 transition flex items-center gap-2 disabled:opacity-50">
-                      {isSendingEmails ? <IconSpinner size={16}/> : <IconMail size={16}/>}
+                      className="flex-1 justify-center px-3 py-2 bg-white dark:bg-slate-800 border border-[#004030]/30 dark:border-[#D8C3A5]/30 text-[#004030] dark:text-[#D8C3A5] rounded-lg text-[11px] sm:text-sm font-medium hover:bg-[#004030]/10 transition flex items-center gap-2 disabled:opacity-50">
+                      {isSendingEmails ? <IconSpinner size={14} className="sm:w-4 sm:h-4"/> : <IconMail size={14} className="sm:w-4 sm:h-4"/>}
                       {isSendingEmails ? t.codes_sending : t.codes_cloud_send}
                    </button>
                    <button onClick={()=>handleCloudSendEmails('reminders')} disabled={isSendingEmails}
-                      className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-100 transition flex items-center gap-2 disabled:opacity-50">
-                      {isSendingEmails ? <IconSpinner size={16}/> : <IconMail size={16}/>}
+                      className="flex-1 justify-center px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] sm:text-sm font-medium hover:bg-amber-100 transition flex items-center gap-2 disabled:opacity-50">
+                      {isSendingEmails ? <IconSpinner size={14} className="sm:w-4 sm:h-4"/> : <IconMail size={14} className="sm:w-4 sm:h-4"/>}
                       {isSendingEmails ? t.codes_sending : t.codes_cloud_remind}
                    </button>
                  </div>
               </div>
             )}
 
-            {!isCloudMode && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-4 text-sm text-red-800 dark:text-red-300">
+            {!isCloudMode && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-3 sm:p-4 text-xs sm:text-sm text-red-800 dark:text-red-300">
               ⚠️ {lang==='zh'?'目前尚未填寫 GAS URL，無法使用雲端推送與自動寄信。請至「部署 & 雲端設定指南」查看教學。':'Cloud URL missing. Please check the Deploy Guide to enable cloud push and mailing.'}
             </div>}
 
-            {store.students.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+            {store.students.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden w-full">
+              <div className="overflow-x-auto hide-scrollbar w-full">
+                <table className="w-full text-xs sm:text-sm min-w-[500px]">
                   <thead className="bg-[#004030] text-[#D8C3A5]">
-                    <tr><th className="px-4 py-3 text-left font-medium">{t.codes_student}</th><th className="px-4 py-3 text-left font-medium">{t.codes_group}</th><th className="px-4 py-3 text-left font-medium font-mono">{t.codes_code}</th><th className="px-4 py-3 text-center font-medium">{t.codes_status}</th></tr>
+                    <tr><th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left font-medium">{t.codes_student}</th><th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left font-medium">{t.codes_group}</th><th className="px-3 sm:px-4 py-2.5 sm:py-3 text-left font-medium font-mono">{t.codes_code}</th><th className="px-3 sm:px-4 py-2.5 sm:py-3 text-center font-medium">{t.codes_status}</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {store.students.map(s=>(
                       <tr key={s.student_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                        <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{lang==='zh'?`${s.name_zh} (${s.name_en})`:`${s.name_en} (${s.name_zh})`}</td>
-                        <td className="px-4 py-2.5 text-slate-500">{s.group}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">{store.codes[s.student_id]||'-'}</td>
-                        <td className="px-4 py-2.5 text-center">
+                        <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-slate-700 dark:text-slate-300">{lang==='zh'?`${s.name_zh} (${s.name_en})`:`${s.name_en} (${s.name_zh})`}</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-slate-500">{s.group}</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-2.5 font-mono text-[10px] sm:text-xs text-slate-600 dark:text-slate-400">{store.codes[s.student_id]||'-'}</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-center">
                           {store.submissions[s.student_id]
-                            ?<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium"><IconCheck size={12}/>{t.codes_submitted}</span>
-                            :<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">{t.codes_pending}</span>}
+                            ?<span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] sm:text-xs font-medium"><IconCheck size={12}/>{t.codes_submitted}</span>
+                            :<span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] sm:text-xs font-medium">{t.codes_pending}</span>}
                         </td>
                       </tr>
                     ))}
@@ -1509,13 +1546,13 @@ const App=()=>{
           </div>}
 
           {adminTab==='results'&&<div className="space-y-4">
-            <div className="flex justify-between items-center bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700">
                <div>
-                  <h3 className="font-bold text-[#004030] dark:text-[#D8C3A5]">{lang==='zh'?'雲端成績同步':'Sync Data'}</h3>
-                  <p className="text-xs text-slate-500">{lang==='zh'?'從 Google Sheets 拉取學生最新送出的互評結果':'Fetch latest peer evaluation results from Google Sheets'}</p>
+                  <h3 className="font-bold text-[#004030] dark:text-[#D8C3A5] text-sm sm:text-base">{lang==='zh'?'雲端成績同步':'Sync Data'}</h3>
+                  <p className="text-[10px] sm:text-xs text-slate-500">{lang==='zh'?'從 Google Sheets 拉取學生最新送出的互評結果':'Fetch latest peer evaluation results from Google Sheets'}</p>
                </div>
                <button onClick={handleSyncFromCloud} disabled={syncStatus==='syncing' || !isCloudMode}
-                  className={`px-5 py-2.5 font-bold rounded-xl transition flex items-center gap-2 text-sm ${
+                  className={`w-full sm:w-auto px-4 py-2 sm:py-2.5 font-bold rounded-xl transition flex justify-center items-center gap-2 text-xs sm:text-sm ${
                     syncStatus==='done'?'bg-green-600 text-white':
                     syncStatus==='syncing'?'bg-slate-300 text-slate-500 cursor-wait':
                     !isCloudMode?'bg-slate-200 text-slate-400 cursor-not-allowed':
@@ -1526,54 +1563,54 @@ const App=()=>{
                </button>
             </div>
 
-            {!computeResults?<div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700"><IconBarChart size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3"/><p className="text-slate-500">{t.results_no_data}</p></div>
+            {!computeResults?<div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700"><IconBarChart size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-3"/><p className="text-slate-500 text-sm">{t.results_no_data}</p></div>
             :<>
-              <div className="flex justify-end"><button onClick={handleExportResults} className="px-5 py-2.5 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-xl hover:opacity-90 transition flex items-center gap-2 text-sm"><IconDownload size={16}/>{t.results_export}</button></div>
+              <div className="flex justify-end"><button onClick={handleExportResults} className="px-4 py-2 sm:py-2.5 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-xl hover:opacity-90 transition flex items-center gap-2 text-xs sm:text-sm"><IconDownload size={16}/>{t.results_export}</button></div>
               {groupNames.map(gName=>{
                 const gr=computeResults[gName];if(!gr)return null;
                 const sorted=Object.values(gr.members).sort((a,b)=>a.avgRank-b.avgRank);
-                return(<div key={gName} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  <div className="px-5 py-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                    <h3 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2"><IconUsers size={18}/>{gName}</h3>
-                    <span className="text-xs text-slate-500">{t.results_submissions}: {gr.submitted}/{gr.total}</span>
+                return(<div key={gName} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden w-full">
+                  <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                    <h3 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2 text-sm sm:text-base"><IconUsers size={16}/>{gName}</h3>
+                    <span className="text-[10px] sm:text-xs text-slate-500">{t.results_submissions}: {gr.submitted}/{gr.total}</span>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                  <div className="overflow-x-auto hide-scrollbar w-full">
+                    <table className="w-full text-[10px] sm:text-sm min-w-[600px]">
                       <thead className="bg-slate-50 dark:bg-slate-700/50">
-                        <tr><th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-300">{t.results_student}</th>
-                          <th className="px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_avg_rank}</th>
-                          <th className="px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_percentile}</th>
-                          <th className="px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_weight}</th>
-                          <th className="px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_group_score}</th>
-                          <th className="px-4 py-2.5 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_final_score}</th></tr>
+                        <tr><th className="px-2 sm:px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-300">{t.results_student}</th>
+                          <th className="px-2 sm:px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_avg_rank}</th>
+                          <th className="px-2 sm:px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_percentile}</th>
+                          <th className="px-2 sm:px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_weight}</th>
+                          <th className="px-2 sm:px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_group_score}</th>
+                          <th className="px-2 sm:px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-300">{t.results_final_score}</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                         {sorted.map(r=>(
                           <tr key={r.student.student_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                            <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{lang==='zh'?`${r.student.name_zh} (${r.student.name_en})`:`${r.student.name_en} (${r.student.name_zh})`}</td>
-                            <td className="px-4 py-2.5 text-center font-mono text-slate-600 dark:text-slate-400">{r.avgRank}</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2 mx-auto max-w-[80px]"><div className="bg-[#004030] dark:bg-[#D8C3A5] h-2 rounded-full" style={{width:r.percentile+'%'}}/></div>
-                              <span className="text-xs text-slate-500">{r.percentile}%</span>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-slate-700 dark:text-slate-300">{lang==='zh'?`${r.student.name_zh} (${r.student.name_en})`:`${r.student.name_en} (${r.student.name_zh})`}</td>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center font-mono text-slate-600 dark:text-slate-400">{r.avgRank}</td>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center">
+                              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-1.5 sm:h-2 mx-auto max-w-[50px] sm:max-w-[80px]"><div className="bg-[#004030] dark:bg-[#D8C3A5] h-1.5 sm:h-2 rounded-full" style={{width:r.percentile+'%'}}/></div>
+                              <span className="text-[9px] sm:text-xs text-slate-500">{r.percentile}%</span>
                             </td>
-                            <td className="px-4 py-2.5 text-center font-mono font-bold text-[#004030] dark:text-[#D8C3A5]">{r.weight}×</td>
-                            <td className="px-4 py-2.5 text-center text-slate-600 dark:text-slate-400">{r.groupScore||'-'}</td>
-                            <td className="px-4 py-2.5 text-center font-bold text-lg text-[#004030] dark:text-[#D8C3A5]">{r.finalScore||'-'}</td>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center font-mono font-bold text-[#004030] dark:text-[#D8C3A5]">{r.weight}×</td>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center text-slate-600 dark:text-slate-400">{r.groupScore||'-'}</td>
+                            <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center font-bold text-sm sm:text-lg text-[#004030] dark:text-[#D8C3A5]">{r.finalScore||'-'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <div className="px-5 py-2 border-t border-slate-100 dark:border-slate-700">
-                    <button onClick={()=>setDetailGroup(detailGroup===gName?null:gName)} className="text-xs text-[#004030] dark:text-[#D8C3A5] hover:underline">
+                  <div className="px-4 sm:px-5 py-2 border-t border-slate-100 dark:border-slate-700">
+                    <button onClick={()=>setDetailGroup(detailGroup===gName?null:gName)} className="text-[10px] sm:text-xs text-[#004030] dark:text-[#D8C3A5] hover:underline">
                       {detailGroup===gName?'▼':'▶'} {t.results_by_criterion}
                     </button>
-                    {detailGroup===gName&&<div className="mt-3 overflow-x-auto">
-                      <table className="w-full text-xs"><thead><tr className="bg-slate-100 dark:bg-slate-700"><th className="px-3 py-2 text-left">{t.results_student}</th>
-                        {store.criteria.map(c=><th key={c.id} className="px-3 py-2 text-center">{lang==='zh'?c.name_zh:c.name_en}</th>)}</tr></thead>
+                    {detailGroup===gName&&<div className="mt-2 sm:mt-3 overflow-x-auto hide-scrollbar w-full">
+                      <table className="w-full text-[10px] sm:text-xs min-w-[500px]"><thead><tr className="bg-slate-100 dark:bg-slate-700"><th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left">{t.results_student}</th>
+                        {store.criteria.map(c=><th key={c.id} className="px-2 sm:px-3 py-1.5 sm:py-2 text-center">{lang==='zh'?c.name_zh:c.name_en}</th>)}</tr></thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                        {sorted.map(r=><tr key={r.student.student_id}><td className="px-3 py-1.5">{lang==='zh'?r.student.name_zh:r.student.name_en}</td>
-                          {store.criteria.map(c=><td key={c.id} className="px-3 py-1.5 text-center font-mono">{r.criterionDetail[c.id]}</td>)}</tr>)}
+                        {sorted.map(r=><tr key={r.student.student_id}><td className="px-2 sm:px-3 py-1 sm:py-1.5">{lang==='zh'?r.student.name_zh:r.student.name_en}</td>
+                          {store.criteria.map(c=><td key={c.id} className="px-2 sm:px-3 py-1 sm:py-1.5 text-center font-mono">{r.criterionDetail[c.id]}</td>)}</tr>)}
                       </tbody></table>
                     </div>}
                   </div>
@@ -1583,41 +1620,41 @@ const App=()=>{
           </div>}
 
           {adminTab==='ta'&&isProf&&<div className="space-y-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5] mb-4">{t.admin_ta_title}</h3>
-              <div className="p-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] flex items-center justify-center text-xs font-bold">P</span>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5] mb-3 sm:mb-4">{t.admin_ta_title}</h3>
+              <div className="p-2.5 sm:p-3 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] flex items-center justify-center text-xs font-bold">P</span>
                   <div>
-                    <p className="text-sm font-medium text-[#004030] dark:text-[#D8C3A5]">{(store.users.find(u=>u.role==='professor')||{}).name||'Professor'}</p>
-                    <p className="text-xs text-slate-400">ID: {(store.users.find(u=>u.role==='professor')||{}).id||'prof'} · {t.admin_ta_prof_note}</p>
+                    <p className="text-xs sm:text-sm font-medium text-[#004030] dark:text-[#D8C3A5]">{(store.users.find(u=>u.role==='professor')||{}).name||'Professor'}</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400">ID: {(store.users.find(u=>u.role==='professor')||{}).id||'prof'} · {t.admin_ta_prof_note}</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2 mb-4">
-                {store.users.filter(u=>u.role==='ta').length===0&&<p className="text-sm text-slate-400 text-center py-4">{t.admin_ta_none}</p>}
+                {store.users.filter(u=>u.role==='ta').length===0&&<p className="text-xs sm:text-sm text-slate-400 text-center py-3 sm:py-4">{t.admin_ta_none}</p>}
                 {store.users.filter(u=>u.role==='ta').map(ta=>(
-                  <div key={ta.id} className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl flex items-center justify-between border border-slate-200 dark:border-slate-600">
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex items-center justify-center text-xs font-bold">TA</span>
+                  <div key={ta.id} className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl flex items-center justify-between border border-slate-200 dark:border-slate-600">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex items-center justify-center text-xs font-bold">TA</span>
                       <div>
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{ta.name}</p>
-                        <p className="text-xs text-slate-400">ID: {ta.id}</p>
+                        <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">{ta.name}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400">ID: {ta.id}</p>
                       </div>
                     </div>
                     <button onClick={()=>{showConfirmDialog(t.admin_ta_remove_confirm, ()=>updateStore({users:store.users.filter(u=>u.id!==ta.id)}))}}
-                      className="text-xs text-red-400 hover:text-red-600">{t.admin_ta_remove}</button>
+                      className="text-[10px] sm:text-xs text-red-400 hover:text-red-600 px-2 py-1">{t.admin_ta_remove}</button>
                   </div>
                 ))}
               </div>
 
-              <div className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">{t.admin_ta_add}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input ref={newTaNameRef} type="text" placeholder={t.admin_ta_name_ph} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
-                  <input ref={newTaIdRef} type="text" placeholder={t.admin_ta_id_ph} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
-                  <input ref={newTaPwRef} type="text" placeholder={t.admin_ta_pw_ph} className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none text-slate-800 dark:text-slate-200"/>
+              <div className="p-3 sm:p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl">
+                <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mb-2 sm:mb-3">{t.admin_ta_add}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  <input ref={newTaNameRef} type="text" placeholder={t.admin_ta_name_ph} className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none"/>
+                  <input ref={newTaIdRef} type="text" placeholder={t.admin_ta_id_ph} className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none"/>
+                  <input ref={newTaPwRef} type="text" placeholder={t.admin_ta_pw_ph} className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm focus:ring-2 focus:ring-[#004030] focus:outline-none"/>
                 </div>
                 <button onClick={()=>{
                   const name = newTaNameRef.current?.value?.trim();
@@ -1630,14 +1667,14 @@ const App=()=>{
                   if(newTaIdRef.current) newTaIdRef.current.value='';
                   if(newTaPwRef.current) newTaPwRef.current.value='';
                 }}
-                  className="mt-3 px-5 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-lg text-sm font-bold hover:opacity-90 transition">{t.admin_ta_add}</button>
+                  className="mt-3 w-full sm:w-auto px-4 sm:px-5 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-lg text-xs sm:text-sm font-bold hover:opacity-90 transition">{t.admin_ta_add}</button>
               </div>
             </div>
           </div>}
 
-          {adminTab==='gas'&&<div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <h2 className="font-serif font-bold text-xl text-[#004030] dark:text-[#D8C3A5] mb-2">{t.deploy_title}</h2>
+          {adminTab==='gas'&&<div className="space-y-4 sm:space-y-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
+              <h2 className="font-serif font-bold text-lg sm:text-xl text-[#004030] dark:text-[#D8C3A5] mb-3 sm:mb-4">{t.deploy_title}</h2>
               <div className="space-y-3">
                 {[
                   {step:t.deploy_step1,desc:t.deploy_step1_desc,icon:'1️⃣'},
@@ -1645,29 +1682,26 @@ const App=()=>{
                   {step:t.deploy_step3,desc:t.deploy_step3_desc,icon:'3️⃣'},
                   {step:t.deploy_step4,desc:t.deploy_step4_desc,icon:'4️⃣'}
                 ].map((s,i)=>(
-                  <div key={i} className="flex gap-3 items-start">
-                    <div className="w-9 h-9 rounded-full bg-[#004030]/10 dark:bg-[#D8C3A5]/10 flex items-center justify-center text-base shrink-0">{s.icon}</div>
-                    <div className="flex-1 pb-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
-                      <p className="font-bold text-[#004030] dark:text-[#D8C3A5] text-sm">{s.step}</p>
-                      <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">{s.desc}</p>
+                  <div key={i} className="flex gap-2 sm:gap-3 items-start">
+                    <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-[#004030]/10 dark:bg-[#D8C3A5]/10 flex items-center justify-center text-sm sm:text-base shrink-0">{s.icon}</div>
+                    <div className="flex-1 pb-2 sm:pb-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
+                      <p className="font-bold text-[#004030] dark:text-[#D8C3A5] text-xs sm:text-sm">{s.step}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{s.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-                💡 重要：只要在 index.html 內貼上 GAS URL，整套系統的運作邏輯就會自動從「本機版」升級為「連網雲端版」。
-              </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5]">Google Apps Script</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 w-full overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-3">
+                <h3 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5]">Google Apps Script</h3>
                 <button onClick={()=>{navigator.clipboard.writeText(GAS_SCRIPT);setGasCopied(true);setTimeout(()=>setGasCopied(false),2000)}}
-                  className="px-4 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90 transition">
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1 sm:gap-2 hover:opacity-90 transition">
                   <IconCopy size={14}/>{gasCopied?t.gas_copied:t.gas_copy_script}
                 </button>
               </div>
-              <pre className="bg-slate-900 text-green-400 p-4 rounded-xl text-xs overflow-x-auto max-h-[400px] overflow-y-auto leading-relaxed">
+              <pre className="bg-slate-900 text-green-400 p-3 sm:p-4 rounded-xl text-[10px] sm:text-xs overflow-x-auto max-h-[300px] sm:max-h-[400px] overflow-y-auto leading-relaxed hide-scrollbar w-full">
                 {GAS_SCRIPT}
               </pre>
             </div>
@@ -1688,31 +1722,31 @@ const App=()=>{
     if(!currentData || !currentData.user) return null;
     
     return(
-      <div className="min-h-screen pt-20 pb-12 px-4">
+      <div className="min-h-screen pt-16 sm:pt-20 pb-12 px-3 sm:px-4">
         <div className="max-w-3xl mx-auto animate-fade-in">
-          <div className="mb-6">
-            <h1 className="font-serif font-bold text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.eval_title}</h1>
-            {currentData.assignment && <p className="text-slate-500 text-sm mt-1">{currentData.assignment}</p>}
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 p-3 rounded-xl">{t.eval_instruction}</p>
+          <div className="mb-4 sm:mb-6">
+            <h1 className="font-serif font-bold text-xl sm:text-2xl text-[#004030] dark:text-[#D8C3A5]">{t.eval_title}</h1>
+            {currentData.assignment && <p className="text-slate-500 text-xs sm:text-sm mt-1">{currentData.assignment}</p>}
+            <p className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 mt-2 bg-[#004030]/5 dark:bg-[#D8C3A5]/5 p-2 sm:p-3 rounded-xl">{t.eval_instruction}</p>
           </div>
-          <div className="space-y-8">
+          <div className="space-y-4 sm:space-y-8">
             {currentData.criteria.map((c,idx)=>(
-              <div key={c.id} className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="mb-4">
-                  <h2 className="font-serif font-bold text-lg text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] text-xs flex items-center justify-center font-bold">{idx+1}</span>
+              <div key={c.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="mb-3 sm:mb-4">
+                  <h2 className="font-serif font-bold text-base sm:text-lg text-[#004030] dark:text-[#D8C3A5] flex items-center gap-2">
+                    <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] text-[10px] sm:text-xs flex items-center justify-center font-bold">{idx+1}</span>
                     {lang==='zh'?c.name_zh:c.name_en}
                   </h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 ml-9">{lang==='zh'?c.desc_zh:c.desc_en}</p>
+                  <p className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 mt-1 ml-8 sm:ml-9">{lang==='zh'?c.desc_zh:c.desc_en}</p>
                 </div>
                 <RankingBoard key={c.id} members={currentData.groupMembers} currentUser={currentUser} lang={lang}
                   onRankingChange={r=>handleRankingChange(c.id,r)} existingRanking={null}/>
               </div>
             ))}
           </div>
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <button onClick={handleSubmitEval} disabled={isSubmitting}
-               className="w-full py-4 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold text-lg rounded-xl hover:opacity-90 transition shadow-lg flex justify-center items-center disabled:opacity-70">
+               className="w-full py-3 sm:py-4 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold text-base sm:text-lg rounded-xl hover:opacity-90 transition shadow-lg flex justify-center items-center disabled:opacity-70">
               {isSubmitting ? <IconSpinner size={24}/> : t.eval_submit}
             </button>
           </div>
@@ -1722,11 +1756,11 @@ const App=()=>{
   };
 
   const renderSuccessView=()=>(
-    <div className="min-h-screen flex items-center justify-center p-4 pt-20">
+    <div className="min-h-screen flex items-center justify-center p-4 pt-16 sm:pt-20">
       <div className="text-center animate-fade-in">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><IconCheck size={40} className="text-green-600 dark:text-green-400"/></div>
-        <h2 className="font-serif font-bold text-2xl text-[#004030] dark:text-[#D8C3A5] mb-2">{t.eval_success}</h2>
-        <p className="text-slate-500">{lang==='zh'?'您可以安全關閉此頁面。':'You may safely close this page.'}</p>
+        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><IconCheck size={32} className="sm:w-10 sm:h-10 text-green-600 dark:text-green-400"/></div>
+        <h2 className="font-serif font-bold text-xl sm:text-2xl text-[#004030] dark:text-[#D8C3A5] mb-1 sm:mb-2">{t.eval_success}</h2>
+        <p className="text-xs sm:text-sm text-slate-500">{lang==='zh'?'您可以安全關閉此頁面。':'You may safely close this page.'}</p>
       </div>
     </div>
   );
@@ -1734,7 +1768,7 @@ const App=()=>{
   return(
     <div className="flex flex-col min-h-screen">
       {renderHeader()}
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-full overflow-hidden">
         {view==='login'&&renderLoginView()}
         {view==='admin_login'&&renderAdminLoginView()}
         {view==='admin'&&renderAdminView()}
@@ -1746,13 +1780,13 @@ const App=()=>{
       {/* Global Dialog Modal */}
       {dialog && (
         <div className="fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700 animate-fade-in">
-            <p className="text-slate-700 dark:text-slate-300 mb-6 whitespace-pre-line">{dialog.msg}</p>
-            <div className="flex gap-3">
+          <div className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700 animate-fade-in max-h-[85vh] overflow-y-auto hide-scrollbar">
+            <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5 sm:mb-6 whitespace-pre-line">{dialog.msg}</p>
+            <div className="flex gap-2 sm:gap-3 shrink-0">
               {dialog.type === 'confirm' && (
-                <button onClick={()=>setDialog(null)} disabled={isSubmitting || isSendingEmails} className="flex-1 py-2 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition disabled:opacity-50">取消</button>
+                <button onClick={()=>setDialog(null)} disabled={isSubmitting || isSendingEmails} className="flex-1 py-1.5 sm:py-2 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition text-xs sm:text-sm disabled:opacity-50">取消</button>
               )}
-              <button onClick={()=>{ if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} disabled={isSubmitting || isSendingEmails} className="flex-1 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-xl font-bold hover:opacity-90 transition disabled:opacity-50">確定</button>
+              <button onClick={()=>{ if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} disabled={isSubmitting || isSendingEmails} className="flex-1 py-1.5 sm:py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-xl font-bold hover:opacity-90 transition text-xs sm:text-sm disabled:opacity-50">確定</button>
             </div>
           </div>
         </div>
