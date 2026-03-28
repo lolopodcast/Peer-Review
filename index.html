@@ -22,7 +22,7 @@ tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans
 // ⚠️ 教授/TA 請注意：請將您部署後的 Google Apps Script Web App URL 填入下方引號中
 // 只要填入此網址，系統就會自動啟用「雙向雲端同步模式」
 // =====================================================================
-window.CLOUD_GAS_URL = "https://script.google.com/macros/s/AKfycbyTv61UWDl5WUtjE_CGoqugxFI_XYtUm08XAwtncfyTRBwLRhvNuU49l1TC7N3FvcWh/exec"; 
+window.CLOUD_GAS_URL = ""; 
 // 例: "https://script.google.com/macros/s/AKfycb.../exec"
 
 </script>
@@ -104,8 +104,10 @@ setup_eval_url:"互評網頁 URL",setup_eval_url_ph:"部署後的網址",
 codes_title:"登入碼管理",codes_generate:"產生登入碼",
 codes_export_gas:"一鍵複製寄信資料",
 codes_export_csv:"匯出 CSV",
-codes_copy_done:"已複製到剪貼簿！貼入 Google Sheets 即可",
+codes_copy_done:"已複製到剪貼簿！",
 codes_push:"推送到雲端資料庫",codes_pushing:"推送中...",codes_push_done:"推播成功！名單已同步至 Google Sheets",codes_push_error:"推送失敗：{e}",
+codes_cloud_send:"雲端寄發登入碼", codes_cloud_remind:"雲端寄發催繳信", codes_sending:"寄信中...",
+codes_send_confirm:"確定要透過雲端自動寄發信件給學生嗎？\n\n(此操作會直接透過您的 Google 帳號寄出信件，請確保名單已推送到雲端)",
 codes_status:"狀態",codes_submitted:"已提交",codes_pending:"未提交",
 codes_code:"登入碼",codes_student:"學生",codes_group:"組別",
 eval_title:"互評作業",eval_criterion:"評分項目",
@@ -130,8 +132,8 @@ deploy_step3:"步驟 3：設定權限",deploy_step3_desc:"執行身分選「我 
 deploy_step4:"步驟 4：將 URL 貼入 HTML",deploy_step4_desc:"用記事本打開這個 index.html 檔案，找到大約第 20 行 window.CLOUD_GAS_URL = \"\";，將網址貼在引號內，存檔後上傳至 GitHub Pages。",
 email_title:"寄送 Email 說明",
 gas_step1:"在雲端模式下，Google Sheets 會自動生成 Roster(名單)、Criteria(標準)、Submissions(成績) 等工作表。",
-gas_step2:"當您在管理者面板點擊「推送到雲端」後，名單與登入碼就會出現在 Roster 工作表。",
-gas_step3:"在 Google Sheets 的上方選單中會出現「📋 Peer Eval」，點擊裡面的「📧 寄出登入碼」即可發信給所有學生。",
+gas_step2:"只要填好網址，您就可以在「登入碼」頁面直接點擊【雲端寄發登入碼】，系統會自動呼叫後端幫您發信。",
+gas_step3:"若要自動每天催繳，請到 Apps Script 左側點「觸發條件(時鐘圖示)」，新增一個時間驅動的觸發器執行 sendReminders 即可。",
 gas_copy_script:"複製 GAS 腳本",gas_copied:"已複製！",
 theme_light:"淺色",theme_dark:"深色",lang_switch:"EN",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
@@ -177,8 +179,10 @@ setup_eval_url:"Evaluation Page URL",setup_eval_url_ph:"Deployed URL",
 codes_title:"Login Code Management",codes_generate:"Generate Codes",
 codes_export_gas:"Copy Data for Email",
 codes_export_csv:"Export CSV",
-codes_copy_done:"Copied! Paste into Google Sheets.",
+codes_copy_done:"Copied!",
 codes_push:"Push Setup to Cloud",codes_pushing:"Pushing...",codes_push_done:"Success! Roster synced to Google Sheets",codes_push_error:"Push failed: {e}",
+codes_cloud_send:"Cloud Send Codes", codes_cloud_remind:"Cloud Send Reminders", codes_sending:"Sending...",
+codes_send_confirm:"Are you sure you want to automatically send emails to students via cloud?\n\n(This sends emails directly from your Google account. Ensure data is pushed first.)",
 codes_status:"Status",codes_submitted:"Submitted",codes_pending:"Pending",
 codes_code:"Code",codes_student:"Student",codes_group:"Group",
 eval_title:"Peer Evaluation",eval_criterion:"Criterion",
@@ -203,8 +207,8 @@ deploy_step3:"Step 3: Access Permissions",deploy_step3_desc:"Execute as 'Me', Ac
 deploy_step4:"Step 4: Update HTML File",deploy_step4_desc:"Open index.html in a text editor, paste the URL into window.CLOUD_GAS_URL = \"\"; around line 20. Save and upload to GitHub Pages.",
 email_title:"Sending Emails",
 gas_step1:"In Cloud Mode, Google Sheets auto-creates Roster, Criteria, and Submissions sheets.",
-gas_step2:"Click 'Push Setup to Cloud' in the Admin panel to populate the Roster sheet.",
-gas_step3:"In Google Sheets, use the custom menu '📋 Peer Eval' -> '📧 Send Codes' to email all students.",
+gas_step2:"You can directly click 'Cloud Send Codes' on the Codes tab to trigger emails via the backend.",
+gas_step3:"For auto-reminders, go to Apps Script -> Triggers (clock icon) -> add time-driven trigger for sendReminders.",
 gas_copy_script:"Copy GAS Script",gas_copied:"Copied!",
 theme_light:"Light",theme_dark:"Dark",lang_switch:"中",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
@@ -242,6 +246,25 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const action = data.action;
+
+    // ─── 新增：遠端發信 API ───
+    if (action === 'send_codes' || action === 'send_reminders') {
+      const sets = ss.getSheetByName('Settings').getDataRange().getValues();
+      let realPw = 'admin2026';
+      for(let i=1; i<sets.length; i++) {
+        if(sets[i][0] === 'admin_pw') realPw = sets[i][1];
+      }
+      if (data.pw !== realPw) throw new Error('Unauthorized');
+      
+      if (action === 'send_codes') {
+        output.message = doSendLoginCodes();
+      } else {
+        output.message = doSendReminders();
+      }
+      output.ok = true;
+      return ContentService.createTextOutput(JSON.stringify(output)).setMimeType(ContentService.MimeType.JSON);
+    }
+    // ──────────────────────
 
     if (action === 'push_setup') {
       const rSheet = ss.getSheetByName('Roster');
@@ -344,17 +367,21 @@ function getSetting(key) {
   return '';
 }
 
-function sendLoginCodes() {
+// 分離 UI 提示與寄信邏輯，讓遠端 API 可以呼叫
+function doSendLoginCodes() {
   const ss = SpreadsheetApp.getActive();
-  const roster = ss.getSheetByName('Roster').getDataRange().getValues();
+  const roster = ss.getSheetByName('Roster');
+  if(!roster) return '尚未建立名單，請先從網頁推送。';
+  
+  const data = roster.getDataRange().getValues();
   const assign = getSetting('assignment');
   const deadline = getSetting('deadline');
   const evalUrl = getSetting('eval_url');
   
   let sent = 0;
-  for (let i = 1; i < roster.length; i++) {
-    const email = String(roster[i][3]).trim();
-    const code = String(roster[i][5]).trim();
+  for (let i = 1; i < data.length; i++) {
+    const email = String(data[i][3]).trim();
+    const code = String(data[i][5]).trim();
     if (!email || !code) continue;
     
     const subject = '[Peer Eval] 同儕互評登入碼 Login Code';
@@ -368,31 +395,45 @@ function sendLoginCodes() {
     
     try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } catch(e) {}
   }
-  SpreadsheetApp.getUi().alert('成功寄出 ' + sent + ' 封信。');
+  return '成功寄出 ' + sent + ' 封登入碼信件。';
 }
 
-function sendReminders() {
+function doSendReminders() {
   const ss = SpreadsheetApp.getActive();
-  const roster = ss.getSheetByName('Roster').getDataRange().getValues();
-  const subs = ss.getSheetByName('Submissions').getDataRange().getValues();
+  const roster = ss.getSheetByName('Roster');
+  const submissions = ss.getSheetByName('Submissions');
+  if(!roster) return '尚未建立名單。';
+  
+  const rData = roster.getDataRange().getValues();
+  const sData = submissions ? submissions.getDataRange().getValues() : [];
   const assign = getSetting('assignment');
   const evalUrl = getSetting('eval_url');
   
   const subMap = new Set();
-  for(let i=1; i<subs.length; i++) subMap.add(String(subs[i][0]));
+  for(let i=1; i<sData.length; i++) subMap.add(String(sData[i][0]));
 
   let sent = 0;
-  for (let i = 1; i < roster.length; i++) {
-    const sid = String(roster[i][0]);
-    const email = String(roster[i][3]).trim();
-    const code = String(roster[i][5]).trim();
+  for (let i = 1; i < rData.length; i++) {
+    const sid = String(rData[i][0]);
+    const email = String(rData[i][3]).trim();
+    const code = String(rData[i][5]).trim();
     if (!email || !code || subMap.has(sid)) continue;
     
     const subject = '[提醒 Reminder] 互評尚未完成 Evaluation Pending';
     const html = '<div style="font-family:sans-serif;padding:20px"><h2>⏰ 互評尚未完成</h2><p>您尚未完成 <b>' + assign + '</b> 的同儕互評，您的登入碼為 <b>' + code + '</b>，請盡快至系統填寫：</p><p><a href="' + evalUrl + '">點此進入系統</a></p></div>';
     try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } catch(e) {}
   }
-  SpreadsheetApp.getUi().alert('成功寄出催繳 ' + sent + ' 封信。');
+  return '成功寄出催繳 ' + sent + ' 封信。';
+}
+
+// 提供 Google Sheets 介面的選單點擊使用
+function sendLoginCodes() {
+  const msg = doSendLoginCodes();
+  if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg);
+}
+function sendReminders() {
+  const msg = doSendReminders();
+  if(SpreadsheetApp.getActiveSpreadsheet()) SpreadsheetApp.getUi().alert(msg);
 }
 `;
 
@@ -415,6 +456,7 @@ const IconCode=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} hei
 const IconFile=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
 const IconCloud=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M17.5 19A5.5 5.5 0 0 0 18 8h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg>;
 const IconSpinner=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`animate-spin ${p.className||""}`}><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
+const IconMail=p=><svg xmlns="http://www.w3.org/2000/svg" width={p.size||20} height={p.size||20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p.className||""}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>;
 
 // ─── Utilities ───
 function generateCode(len=10){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<len;i++)s+=c[Math.floor(Math.random()*c.length)];return s}
@@ -816,7 +858,7 @@ const App=()=>{
   const[adminUser,setAdminUser]=useState(null); 
   const[isSubmitting,setIsSubmitting]=useState(false);
   
-  // Custom Global Dialog State (代替原生的 alert 與 confirm)
+  // Custom Global Dialog State
   const[dialog, setDialog] = useState(null);
   const showAlert = useCallback((msg) => setDialog({ type: 'alert', msg }), []);
   const showConfirmDialog = useCallback((msg, onConfirm) => setDialog({ type: 'confirm', msg, onConfirm }), []);
@@ -831,8 +873,10 @@ const App=()=>{
   const[criteriaImporting,setCriteriaImporting]=useState(false);
   const[gasCopied,setGasCopied]=useState(false);
   const[codeCopied,setCodeCopied]=useState(false);
+  
   const[pushStatus,setPushStatus]=useState(null);
   const[syncStatus,setSyncStatus]=useState(null);
+  const[isSendingEmails,setIsSendingEmails]=useState(false); // 控制雲端發信狀態
 
   const[store,setStoreState]=useState(()=>{
     const s=loadStore();
@@ -874,7 +918,7 @@ const App=()=>{
   const newTaIdRef = useRef(null);
   const newTaPwRef = useRef(null);
 
-  // ─── 學生登入 (雲端優先，退回本機) ───
+  // ─── 學生登入 ───
   const doStudentLogin=async()=>{
     const code = (studentCodeRef.current?.value || '').trim();
     if(!code) return;
@@ -970,6 +1014,23 @@ const App=()=>{
     }catch(err){
       setPushStatus('error:'+err.message); setTimeout(()=>setPushStatus(null), 5000);
     }
+  };
+
+  // ─── 管理者雲端發信控制 ───
+  const handleCloudSendEmails=async(type)=>{
+    if(!isCloudMode) return;
+    showConfirmDialog(t.codes_send_confirm, async () => {
+      setIsSendingEmails(true);
+      try {
+        const pw = adminPwRef.current?.value || store.users.find(u=>u.role==='professor')?.password || 'admin2026';
+        const res = await apiFetch({ action: type === 'codes' ? 'send_codes' : 'send_reminders', pw });
+        showAlert(res.message || '寄信完成！');
+      } catch(err) {
+        showAlert("寄信失敗: " + err.message);
+      } finally {
+        setIsSendingEmails(false);
+      }
+    });
   };
 
   // ─── 管理者雲端同步 ───
@@ -1359,8 +1420,28 @@ const App=()=>{
               )}
             </div>
             
+            {isCloudMode && (
+              <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl p-5 border border-[#004030]/20 dark:border-[#D8C3A5]/20 mt-2">
+                 <h4 className="text-sm font-bold text-[#004030] dark:text-[#D8C3A5] mb-3 flex items-center gap-2">
+                    <IconMail size={18}/> 雲端發信控制台 (遠端操作 GAS)
+                 </h4>
+                 <div className="flex flex-wrap gap-3">
+                   <button onClick={()=>handleCloudSendEmails('codes')} disabled={isSendingEmails}
+                      className="px-4 py-2 bg-white dark:bg-slate-800 border border-[#004030]/30 dark:border-[#D8C3A5]/30 text-[#004030] dark:text-[#D8C3A5] rounded-lg text-sm font-medium hover:bg-[#004030]/10 transition flex items-center gap-2 disabled:opacity-50">
+                      {isSendingEmails ? <IconSpinner size={16}/> : <IconMail size={16}/>}
+                      {isSendingEmails ? t.codes_sending : t.codes_cloud_send}
+                   </button>
+                   <button onClick={()=>handleCloudSendEmails('reminders')} disabled={isSendingEmails}
+                      className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-100 transition flex items-center gap-2 disabled:opacity-50">
+                      {isSendingEmails ? <IconSpinner size={16}/> : <IconMail size={16}/>}
+                      {isSendingEmails ? t.codes_sending : t.codes_cloud_remind}
+                   </button>
+                 </div>
+              </div>
+            )}
+
             {!isCloudMode && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-4 text-sm text-red-800 dark:text-red-300">
-              ⚠️ {lang==='zh'?'目前尚未填寫 GAS URL，無法使用雲端推送。請至「部署 & 雲端設定指南」查看教學。':'Cloud URL missing. Please check the Deploy Guide to enable cloud push.'}
+              ⚠️ {lang==='zh'?'目前尚未填寫 GAS URL，無法使用雲端推送與自動寄信。請至「部署 & 雲端設定指南」查看教學。':'Cloud URL missing. Please check the Deploy Guide to enable cloud push and mailing.'}
             </div>}
 
             {store.students.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -1630,9 +1711,9 @@ const App=()=>{
             <p className="text-slate-700 dark:text-slate-300 mb-6 whitespace-pre-line">{dialog.msg}</p>
             <div className="flex gap-3">
               {dialog.type === 'confirm' && (
-                <button onClick={()=>setDialog(null)} className="flex-1 py-2 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">取消</button>
+                <button onClick={()=>setDialog(null)} disabled={isSubmitting || isSendingEmails} className="flex-1 py-2 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition disabled:opacity-50">取消</button>
               )}
-              <button onClick={()=>{ if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="flex-1 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-xl font-bold hover:opacity-90 transition">確定</button>
+              <button onClick={()=>{ if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} disabled={isSubmitting || isSendingEmails} className="flex-1 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] rounded-xl font-bold hover:opacity-90 transition disabled:opacity-50">確定</button>
             </div>
           </div>
         </div>
