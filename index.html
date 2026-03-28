@@ -22,7 +22,7 @@ tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans
 // ⚠️ 教授/TA 請注意：請將您部署後的 Google Apps Script Web App URL 填入下方引號中
 // 只要填入此網址，系統就會自動啟用「雙向雲端同步模式」
 // =====================================================================
-window.CLOUD_GAS_URL = "https://script.google.com/macros/s/AKfycbyFGJT7vtawFFjJ1K-QQ25lYFhvQvcHhQSha-yviDHkXrsAvSRjwAojmAaJqDgZecLMYg/exec"; 
+window.CLOUD_GAS_URL = ""; 
 // 例: "https://script.google.com/macros/s/AKfycb.../exec"
 
 </script>
@@ -379,10 +379,18 @@ function doSendLoginCodes() {
   const evalUrl = getSetting('eval_url');
   
   let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+  let lastErr = '';
+  
   for (let i = 1; i < data.length; i++) {
     const email = String(data[i][3]).trim();
     const code = String(data[i][5]).trim();
-    if (!email || !code) continue;
+    // 檢查是否有 email、是否有 @ 符號，以及是否有登入碼
+    if (!email || !code || !email.includes('@')) {
+      skipped++;
+      continue;
+    }
     
     const subject = '[Peer Eval] 同儕互評登入碼 Login Code';
     const html = '<div style="font-family:sans-serif;padding:20px">'
@@ -393,9 +401,20 @@ function doSendLoginCodes() {
       + '<a href="' + evalUrl + '" style="background:#166534;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">前往互評 Enter -></a>'
       + '</div>';
     
-    try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } catch(e) {}
+    try { 
+      MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); 
+      sent++; 
+      Utilities.sleep(300); // 稍微暫停避免觸發 Google 發信頻率限制
+    } catch(e) {
+      failed++;
+      lastErr = e.message;
+    }
   }
-  return '成功寄出 ' + sent + ' 封登入碼信件。';
+  
+  let res = '處理 ' + (data.length - 1) + ' 筆資料\\n✅ 成功：' + sent;
+  if(skipped > 0) res += '\\n⚠️ 跳過(無效Email/無登入碼)：' + skipped;
+  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (錯誤原因：' + lastErr + ')';
+  return res;
 }
 
 function doSendReminders() {
@@ -413,17 +432,37 @@ function doSendReminders() {
   for(let i=1; i<sData.length; i++) subMap.add(String(sData[i][0]));
 
   let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+  let lastErr = '';
+
   for (let i = 1; i < rData.length; i++) {
     const sid = String(rData[i][0]);
     const email = String(rData[i][3]).trim();
     const code = String(rData[i][5]).trim();
-    if (!email || !code || subMap.has(sid)) continue;
+    
+    if (!email || !code || !email.includes('@') || subMap.has(sid)) {
+      skipped++;
+      continue;
+    }
     
     const subject = '[提醒 Reminder] 互評尚未完成 Evaluation Pending';
     const html = '<div style="font-family:sans-serif;padding:20px"><h2>⏰ 互評尚未完成</h2><p>您尚未完成 <b>' + assign + '</b> 的同儕互評，您的登入碼為 <b>' + code + '</b>，請盡快至系統填寫：</p><p><a href="' + evalUrl + '">點此進入系統</a></p></div>';
-    try { MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); sent++; Utilities.sleep(300); } catch(e) {}
+    
+    try { 
+      MailApp.sendEmail({to: email, subject: subject, htmlBody: html}); 
+      sent++; 
+      Utilities.sleep(300); 
+    } catch(e) {
+      failed++;
+      lastErr = e.message;
+    }
   }
-  return '成功寄出催繳 ' + sent + ' 封信。';
+  
+  let res = '催繳處理：\\n✅ 成功：' + sent;
+  if(skipped > 0) res += '\\n⚠️ 跳過(無效Email/已提交)：' + skipped;
+  if(failed > 0) res += '\\n❌ 失敗：' + failed + ' (錯誤原因：' + lastErr + ')';
+  return res;
 }
 
 // 提供 Google Sheets 介面的選單點擊使用
