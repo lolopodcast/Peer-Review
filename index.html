@@ -224,9 +224,18 @@ function sendLoginCodes() {
   const data = sheet.getDataRange().getValues();
   const C = CONFIG.COL;
   let sent = 0;
+  const errors = [];
+  const skipped = [];
+  Logger.log('Total rows (incl header): ' + data.length);
+  Logger.log('First data row: ' + JSON.stringify(data[1]));
   for (let i = 1; i < data.length; i++) {
-    const [sid,nzh,nen,email,grp,code,status] = data[i];
-    if (!email || !code) continue;
+    const row = data[i];
+    const email = String(row[C.EMAIL] || '').trim();
+    const code = String(row[C.CODE] || '').trim();
+    const nzh = String(row[C.NAME_ZH] || '').trim();
+    const nen = String(row[C.NAME_EN] || '').trim();
+    const grp = String(row[C.GROUP] || '').trim();
+    if (!email || !code) { skipped.push('Row ' + (i+1) + ': email=' + email + ' code=' + code); continue; }
     const subject = '[' + CONFIG.COURSE_NAME + '] 同儕互評登入碼 Peer Evaluation Login Code';
     const html = '<div style="font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">'
       + '<div style="background:#004030;color:#D8C3A5;padding:20px 24px;border-radius:12px 12px 0 0">'
@@ -244,9 +253,13 @@ function sendLoginCodes() {
       + '<p style="color:#94a3b8;font-size:12px">⚠️ 此碼僅限您本人使用，互評採匿名制。This code is personal. Evaluations are anonymous.</p>'
       + '</div></div>';
     try { MailApp.sendEmail({to:email,subject:subject,htmlBody:html,name:CONFIG.SENDER_NAME}); sent++; Utilities.sleep(500); }
-    catch(e) { Logger.log('Failed: ' + email + ' ' + e.message); }
+    catch(e) { errors.push('Row ' + (i+1) + ' ' + email + ': ' + e.message); Logger.log('FAILED Row ' + (i+1) + ' ' + email + ': ' + e.message); }
   }
-  SpreadsheetApp.getUi().alert('已寄出 ' + sent + ' 封 / ' + sent + ' emails sent');
+  let report = '✅ 成功寄出 ' + sent + ' 封 / ' + sent + ' sent';
+  if (skipped.length > 0) report += '\\n\\n⚠️ 跳過 ' + skipped.length + ' 筆 (缺 email 或 code):\\n' + skipped.join('\\n');
+  if (errors.length > 0) report += '\\n\\n❌ 失敗 ' + errors.length + ' 筆:\\n' + errors.join('\\n');
+  Logger.log(report);
+  SpreadsheetApp.getUi().alert(report);
 }
 
 function sendReminders() {
@@ -254,9 +267,15 @@ function sendReminders() {
   const data = sheet.getDataRange().getValues();
   const C = CONFIG.COL;
   let sent = 0;
+  const errors = [];
   for (let i = 1; i < data.length; i++) {
-    const [sid,nzh,nen,email,grp,code,status] = data[i];
-    if (!email || !code || String(status).toLowerCase() === 'submitted') continue;
+    const row = data[i];
+    const email = String(row[C.EMAIL] || '').trim();
+    const code = String(row[C.CODE] || '').trim();
+    const nzh = String(row[C.NAME_ZH] || '').trim();
+    const nen = String(row[C.NAME_EN] || '').trim();
+    const status = String(row[C.STATUS] || '').toLowerCase();
+    if (!email || !code || status === 'submitted') continue;
     const subject = '[提醒 Reminder] ' + CONFIG.COURSE_NAME + ' 同儕互評未完成';
     const html = '<div style="font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">'
       + '<div style="background:#b45309;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0">'
@@ -271,9 +290,11 @@ function sendReminders() {
       + '<a href="' + CONFIG.EVAL_URL + '" style="display:inline-block;background:#b45309;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold">立即填寫 Complete Now →</a>'
       + '</div></div>';
     try { MailApp.sendEmail({to:email,subject:subject,htmlBody:html,name:CONFIG.SENDER_NAME}); sent++; Utilities.sleep(500); }
-    catch(e) { Logger.log('Reminder failed: ' + email + ' ' + e.message); }
+    catch(e) { errors.push('Row ' + (i+1) + ' ' + email + ': ' + e.message); Logger.log('Reminder FAILED: ' + email + ': ' + e.message); }
   }
-  Logger.log('Reminders sent: ' + sent);
+  let report = '✅ 催繳寄出 ' + sent + ' 封 / ' + sent + ' reminders sent';
+  if (errors.length > 0) report += '\\n\\n❌ 失敗 ' + errors.length + ' 筆:\\n' + errors.join('\\n');
+  Logger.log(report);
 }
 
 function onOpen() {
