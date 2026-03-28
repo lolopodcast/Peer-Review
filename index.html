@@ -71,10 +71,12 @@ setup_assignment:"作業名稱",setup_assignment_ph:"例：期中報告",
 setup_group_score:"小組作業成績（老師給分）",setup_group_score_ph:"例：85",setup_group_score_desc:"互評加權因子 × 此成績 = 個人得分",
 setup_deadline:"截止日期",setup_deadline_ph:"例：2026-04-15",
 setup_eval_url:"互評網頁 URL",setup_eval_url_ph:"部署後的網址",
+setup_gas_url:"GAS Web App URL（選填）",setup_gas_url_ph:"部署 GAS 後取得的 Web App URL",setup_gas_url_desc:"填入後可從 SPA 一鍵推送資料到 Google Sheets",
 codes_title:"登入碼管理",codes_generate:"產生登入碼",
 codes_export_gas:"一鍵複製 GAS 寄信資料",
 codes_export_csv:"匯出 CSV",
 codes_copy_done:"已複製到剪貼簿！貼入 Google Sheets 即可",
+codes_push:"推送到 Google Sheets",codes_pushing:"推送中...",codes_push_done:"已推送！請到 Sheets 確認後執行寄信",codes_push_error:"推送失敗：{e}",
 codes_status:"狀態",codes_submitted:"已提交",codes_pending:"未提交",
 codes_code:"登入碼",codes_student:"學生",codes_group:"組別",
 codes_send_all:"全部寄出（透過 GAS）",codes_send_remind:"催繳未交者",
@@ -104,6 +106,7 @@ gas_step3:"步驟 3：貼上腳本",gas_step3_desc:"複製下方 GAS 腳本，�
 gas_step4:"步驟 4：修改 CONFIG",gas_step4_desc:"將 EVAL_URL、DEADLINE 等改為您的實際值",
 gas_step5:"步驟 5：授權與執行",gas_step5_desc:"首次執行需授權。點選 sendLoginCodes 寄出登入碼",
 gas_step6:"步驟 6：設定每日催繳",gas_step6_desc:"Triggers → Add Trigger → sendReminders → 每日執行",
+gas_step7:"步驟 7（選）：部署為 Web App",gas_step7_desc:"Deploy → New deployment → Web app → Execute as me → Anyone → Deploy → 複製 URL 貼入 SPA「設定」的 GAS Web App URL → 即可從 SPA 一鍵推送",
 gas_copy_script:"複製 GAS 腳本",gas_copied:"已複製！",
 theme_light:"淺色",theme_dark:"深色",lang_switch:"EN",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
@@ -137,10 +140,12 @@ setup_assignment:"Assignment Name",setup_assignment_ph:"e.g., Midterm Report",
 setup_group_score:"Group Assignment Score (by instructor)",setup_group_score_ph:"e.g., 85",setup_group_score_desc:"Weight factor × this score = individual score",
 setup_deadline:"Deadline",setup_deadline_ph:"e.g., 2026-04-15",
 setup_eval_url:"Evaluation Page URL",setup_eval_url_ph:"Deployed URL",
+setup_gas_url:"GAS Web App URL (optional)",setup_gas_url_ph:"Web App URL from GAS deployment",setup_gas_url_desc:"Once set, you can push data to Google Sheets directly from SPA",
 codes_title:"Login Code Management",codes_generate:"Generate Codes",
 codes_export_gas:"Copy Data for GAS Email",
 codes_export_csv:"Export CSV",
 codes_copy_done:"Copied! Paste into Google Sheets.",
+codes_push:"Push to Google Sheets",codes_pushing:"Pushing...",codes_push_done:"Pushed! Review in Sheets then send emails",codes_push_error:"Push failed: {e}",
 codes_status:"Status",codes_submitted:"Submitted",codes_pending:"Pending",
 codes_code:"Code",codes_student:"Student",codes_group:"Group",
 codes_send_all:"Send All (via GAS)",codes_send_remind:"Remind Pending",
@@ -170,6 +175,7 @@ gas_step3:"Step 3: Paste the Script",gas_step3_desc:"Copy the GAS script below a
 gas_step4:"Step 4: Edit CONFIG",gas_step4_desc:"Update EVAL_URL, DEADLINE, etc. with your actual values",
 gas_step5:"Step 5: Authorize & Run",gas_step5_desc:"First run requires authorization. Run sendLoginCodes to send codes.",
 gas_step6:"Step 6: Set Daily Reminder",gas_step6_desc:"Triggers → Add Trigger → sendReminders → daily",
+gas_step7:"Step 7 (optional): Deploy as Web App",gas_step7_desc:"Deploy → New deployment → Web app → Execute as me → Anyone → Deploy → Copy URL to SPA Setup's 'GAS Web App URL' → enables one-click push from SPA",
 gas_copy_script:"Copy GAS Script",gas_copied:"Copied!",
 theme_light:"Light",theme_dark:"Dark",lang_switch:"中",
 date:"Version 2026.03.28",copyright:"For Educational Use Only",
@@ -259,7 +265,52 @@ function onOpen() {
     .addItem('📧 寄出登入碼 Send Codes', 'sendLoginCodes')
     .addItem('⏰ 催繳通知 Send Reminders', 'sendReminders')
     .addToUi();
+}
+
+// ═══ Web App: receive data from SPA via POST ═══
+// Deploy: Deploy → New deployment → Web app → Execute as me → Anyone can access
+// Copy the Web App URL and paste into SPA "GAS Web App URL" field
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+    
+    if (data.action === 'push_codes') {
+      // Clear existing data and write new
+      sheet.clearContents();
+      sheet.getRange(1,1,1,7).setValues([['student_id','name_zh','name_en','email','group','code','status']]);
+      const rows = data.students.map(s => [s.student_id, s.name_zh, s.name_en, s.email, s.group, s.code, s.status]);
+      if (rows.length > 0) {
+        sheet.getRange(2,1,rows.length,7).setValues(rows);
+      }
+      // Notify admin via email
+      MailApp.sendEmail({
+        to: data.adminEmail || Session.getActiveUser().getEmail(),
+        subject: '[Peer Eval] 資料已寫入 Data received — 待確認寄出',
+        htmlBody: '<p>' + rows.length + ' 位學生的登入碼已寫入 Google Sheets。</p>'
+          + '<p>' + rows.length + ' student codes written to Google Sheets.</p>'
+          + '<p>請到 Google Sheets 確認後執行 📋 Peer Eval → 📧 寄出登入碼</p>'
+          + '<p>Please review in Google Sheets, then run 📋 Peer Eval → 📧 Send Codes</p>'
+      });
+      return ContentService.createTextOutput(JSON.stringify({ok:true, count:rows.length}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    if (data.action === 'send_codes') {
+      sendLoginCodes();
+      return ContentService.createTextOutput(JSON.stringify({ok:true, action:'sent'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ok:false, error:'Unknown action'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false, error:err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }`;
+
+// ═══ Note: the following function is NOT inside the GAS_SCRIPT template ═══
 
 // ─── Icons ───
 const Icon=({d,size=20,className=""})=><svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={d}/></svg>;
@@ -847,6 +898,7 @@ const App=()=>{
   const[criteriaImporting,setCriteriaImporting]=useState(false);
   const[gasCopied,setGasCopied]=useState(false);
   const[codeCopied,setCodeCopied]=useState(false);
+  const[pushStatus,setPushStatus]=useState(null); // null | 'pushing' | 'done' | 'error:msg'
 
   const[store,setStoreState]=useState(()=>{
     const s=loadStore();
@@ -863,7 +915,8 @@ const App=()=>{
       assignment:s.assignment||'',
       groupScores:s.groupScores||{},
       deadline:s.deadline||'',
-      evalUrl:s.evalUrl||''
+      evalUrl:s.evalUrl||'https://lolopodcast.github.io/Peer-Review/',
+      gasUrl:s.gasUrl||''
     };
   });
 
@@ -885,10 +938,14 @@ const App=()=>{
     try{
       const students=await parseRosterFile(file);
       if(students.length===0)throw new Error('No valid student rows found');
-      updateStore({students});
+      // Auto-set group scores to 1 for new groups
+      const newGroups = [...new Set(students.map(s=>s.group))];
+      const gs = {...store.groupScores};
+      newGroups.forEach(g => { if(!gs[g]) gs[g] = '1'; });
+      updateStore({students, groupScores: gs});
       const gn=new Set(students.map(s=>s.group)).size;
-      setParseMsg(t.setup_csv_loaded.replace('{n}',students.length).replace('{g}',gn));
-    }catch(err){setParseMsg(t.setup_parse_error.replace('{e}',err.message))}
+      setParseMsg({ok:true,n:students.length,g:gn});
+    }catch(err){setParseMsg({ok:false,e:err.message})}
     finally{setParsing(false)}
   };
 
@@ -951,6 +1008,32 @@ const App=()=>{
       csv+=`${s.student_id},${s.name_zh},${s.name_en},${s.email},${s.group},${code},${status}\n`;
     });
     downloadCSV('peer_eval_codes.csv',csv);
+  };
+
+  // ─── Push to Google Sheets via GAS Web App ───
+  const handlePushToSheets=async()=>{
+    if(!store.gasUrl){alert(lang==='zh'?'請先在「設定」填入 GAS Web App URL':'Please set GAS Web App URL in Setup first');return}
+    if(!Object.keys(store.codes).length){alert(lang==='zh'?'請先產生登入碼':'Please generate codes first');return}
+    setPushStatus('pushing');
+    try{
+      const students=store.students.map(s=>({
+        student_id:s.student_id, name_zh:s.name_zh, name_en:s.name_en,
+        email:s.email, group:s.group,
+        code:store.codes[s.student_id]||'',
+        status:store.submissions[s.student_id]?'submitted':'pending'
+      }));
+      const resp=await fetch(store.gasUrl,{
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'push_codes',students})
+      });
+      // no-cors means we can't read the response, but if no error thrown, it likely worked
+      setPushStatus('done');
+      setTimeout(()=>setPushStatus(null),5000);
+    }catch(err){
+      setPushStatus('error:'+err.message);
+      setTimeout(()=>setPushStatus(null),5000);
+    }
   };
 
   // ─── GAS script with config filled ───
@@ -1130,6 +1213,11 @@ const App=()=>{
                 <input type="text" defaultValue={store.evalUrl} onBlur={e=>updateStore({evalUrl:e.target.value})} placeholder={t.setup_eval_url_ph} className={inputCls}/>
               </div>
             </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">{t.setup_gas_url}</label>
+              <input type="text" defaultValue={store.gasUrl} onBlur={e=>updateStore({gasUrl:e.target.value})} placeholder={t.setup_gas_url_ph} className={inputCls}/>
+              <p className="text-xs text-slate-400 mt-1">{t.setup_gas_url_desc}</p>
+            </div>
           </div>
 
           {/* CSV/Multi-format Upload */}
@@ -1140,7 +1228,7 @@ const App=()=>{
             <input type="file" accept=".csv,.tsv,.xlsx,.xls,.docx,.pdf,.txt" onChange={handleRosterUpload}
               className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-[#004030] file:text-white dark:file:bg-[#D8C3A5] dark:file:text-[#004030] hover:file:opacity-90 cursor-pointer"/>
             {parsing&&<p className="mt-2 text-sm text-amber-600 animate-pulse">{t.setup_parsing}</p>}
-            {parseMsg&&<p className={`mt-2 text-sm flex items-center gap-1 ${parseMsg.includes('error')||parseMsg.includes('失敗')?'text-red-500':'text-green-600 dark:text-green-400'}`}>{parseMsg.includes('error')?<IconX size={16}/>:<IconCheck size={16}/>}{parseMsg}</p>}
+            {parseMsg&&<p className={`mt-2 text-sm flex items-center gap-1 ${parseMsg.ok?'text-green-600 dark:text-green-400':'text-red-500'}`}>{parseMsg.ok?<><IconCheck size={16}/>{t.setup_csv_loaded.replace('{n}',parseMsg.n).replace('{g}',parseMsg.g)}</>:<><IconX size={16}/>{t.setup_parse_error.replace('{e}',parseMsg.e)}</>}</p>}
           </div>
 
           {/* Roster Preview Table */}
@@ -1277,16 +1365,30 @@ const App=()=>{
         {adminTab==='codes'&&<div className="space-y-4">
           <div className="flex flex-wrap gap-3">
             <button onClick={handleGenerateCodes} className="px-5 py-2.5 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-xl hover:opacity-90 transition flex items-center gap-2 text-sm"><IconRefresh size={16}/>{t.codes_generate}</button>
-            <button onClick={handleCopyCodesForGAS} className="px-5 py-2.5 border-2 border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-xl hover:bg-[#004030]/5 transition flex items-center gap-2 text-sm">
-              <IconCopy size={16}/>{codeCopied?t.codes_copy_done:t.codes_export_gas}
-            </button>
-            <button onClick={handleExportCSV} className="px-5 py-2.5 border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 font-medium rounded-xl hover:bg-slate-50 transition flex items-center gap-2 text-sm"><IconDownload size={16}/>{t.codes_export_csv}</button>
+            {store.gasUrl ? (
+              <button onClick={handlePushToSheets} disabled={pushStatus==='pushing'}
+                className={`px-5 py-2.5 font-bold rounded-xl transition flex items-center gap-2 text-sm ${
+                  pushStatus==='done'?'bg-green-600 text-white':pushStatus==='pushing'?'bg-slate-300 text-slate-500 cursor-wait':'bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] hover:opacity-90'
+                }`}>
+                <IconUpload size={16}/>
+                {pushStatus==='pushing'?t.codes_pushing:pushStatus==='done'?t.codes_push_done:pushStatus&&pushStatus.startsWith('error')?t.codes_push_error.replace('{e}',pushStatus.slice(6)):t.codes_push}
+              </button>
+            ) : (
+              <button onClick={handleCopyCodesForGAS} className="px-5 py-2.5 border-2 border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-xl hover:bg-[#004030]/5 transition flex items-center gap-2 text-sm">
+                <IconCopy size={16}/>{codeCopied?t.codes_copy_done:t.codes_export_gas}
+              </button>
+            )}
           </div>
           {/* Info box */}
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-            {lang==='zh'
-              ?'💡 流程：產生登入碼 → 點「一鍵複製 GAS 寄信資料」→ 貼入 Google Sheets → 執行 GAS 腳本寄信。詳見「GAS 指南」分頁。'
-              :'💡 Workflow: Generate codes → Click "Copy Data for GAS Email" → Paste into Google Sheets → Run GAS script. See "GAS Guide" tab.'}
+            {store.gasUrl
+              ?(lang==='zh'
+                ?'💡 流程：產生登入碼 → 點「推送到 Google Sheets」→ 收到確認 Email → 到 Sheets 執行寄信。'
+                :'💡 Workflow: Generate codes → Push to Google Sheets → Receive confirmation email → Run send in Sheets.')
+              :(lang==='zh'
+                ?'💡 流程：產生登入碼 → 點「一鍵複製」→ 貼入 Google Sheets → 執行 GAS 腳本寄信。若要自動化，請在「設定」填入 GAS Web App URL。'
+                :'💡 Workflow: Generate codes → Copy → Paste into Google Sheets → Run GAS. For automation, set GAS Web App URL in Setup.')
+            }
           </div>
           {store.students.length>0&&<div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="overflow-x-auto">
@@ -1416,7 +1518,8 @@ const App=()=>{
                 {step:t.gas_step3,desc:t.gas_step3_desc,icon:'📋'},
                 {step:t.gas_step4,desc:t.gas_step4_desc,icon:'⚙️'},
                 {step:t.gas_step5,desc:t.gas_step5_desc,icon:'▶️'},
-                {step:t.gas_step6,desc:t.gas_step6_desc,icon:'⏰'}
+                {step:t.gas_step6,desc:t.gas_step6_desc,icon:'⏰'},
+                {step:t.gas_step7,desc:t.gas_step7_desc,icon:'🔗'}
               ].map((s,i)=>(
                 <div key={i} className="flex gap-3 items-start">
                   <div className="w-9 h-9 rounded-full bg-[#004030]/10 dark:bg-[#D8C3A5]/10 flex items-center justify-center text-base shrink-0">{s.icon}</div>
